@@ -129,7 +129,7 @@
   .val-bi .v-zh{display:block; font-size:9px; color:#5a6b78; line-height:1.3; white-space:pre-line; margin-top:1px;}
   .ex-head{background:#e8e8e8; font-weight:700; text-align:center; font-size:10px; border-bottom:1px solid #000; padding:2px 0;}
   .ex-grid{display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr; gap:2px; padding:2px; min-height:280px;}
-  .ex-grid .imgcell{min-height:88px;}
+  .ex-grid .imgcell{min-height:88px; max-height:140px; overflow:hidden;}
   /* --- BOM 최하단 단독 행 그리드 (많아도 안깨짐) --- */
   .bom-grid{display:grid; grid-template-columns:repeat(4, 1fr); gap:3px 8px;}
   .bom-cell{display:flex; gap:4px; align-items:baseline; font-size:9.5px; line-height:1.35; padding:1px 0; min-width:0;}
@@ -213,9 +213,10 @@
     .sop{ width:100% !important; font-size:10px !important; }
     .sop .title{ font-size:15px !important; padding:5px !important; }
     /* 예시도 인쇄 높이 축소 (세로 넘침 방지) */
-    .ex-grid{ min-height:0 !important; }
-    .ex-grid .imgcell{ min-height:62px !important; }
-    .imgcell{ height:auto !important; }
+    .ex-grid{ min-height:0 !important; grid-auto-rows:64px !important; }
+    .ex-grid .imgcell{ min-height:0 !important; height:64px !important; max-height:64px !important; overflow:hidden !important; }
+    .imgcell{ height:64px !important; max-height:64px !important; overflow:hidden !important; }
+    .imgcell img{ max-height:52px !important; max-width:100% !important; width:auto !important; object-fit:contain !important; margin-top:12px !important; }
     /* 표가 페이지 넘어갈 때 잘림 방지 */
     .sop tr, .sop td{ page-break-inside:avoid; }
     /* 마지막 요소 뒤 여백이 새 페이지를 만들지 않도록 */
@@ -681,20 +682,19 @@ function App() {
       setCell(`A${ph}`, "No.", { fill: "FFE8E8E8", bold: true });
       ws.mergeCells(`B${ph}:D${ph}`); lbl(`B${ph}`, "작업순서", { fill: "FFE8E8E8", bold: true });
       ws.mergeCells(`E${ph}:F${ph}`); lbl(`E${ph}`, "구분", { fill: "FFE8E8E8", bold: true });
-      ws.mergeCells(`G${ph}:N${ph}`); lbl(`G${ph}`, "작업표준 및 검사", { fill: "FFE8E8E8", bold: true });
-      ws.mergeCells(`O${ph}:AC${ph}`); lbl(`O${ph}`, "작업 예시도", { fill: "FFE8E8E8", bold: true });
+      ws.mergeCells(`G${ph}:AC${ph}`); lbl(`G${ph}`, "작업표준 및 검사", { fill: "FFE8E8E8", bold: true });
       let r = ph + 1;
       procs.forEach(p => {
-        // 내용(G:N 8칸)과 작업순서(B:D 3칸)의 병기 텍스트로 필요한 높이 계산
+        // 내용(G:AC 21칸)과 작업순서(B:D 3칸)의 병기 텍스트로 필요한 높이 계산
         const contentText = zhOn ? (p.content + "\n" + (zof(p.content) || "")) : p.content;
         const orderText = zhOn ? (p.order + "\n" + (zof(p.order) || "")) : p.order;
-        const hC = estRowHeight(contentText, 8, 9);
+        const hC = estRowHeight(contentText, 21, 9);
         const hO = estRowHeight(orderText, 3, 9);
         ws.getRow(r).height = Math.min(Math.max(hC, hO, zhOn ? 28 : 20), 110);
         setCell(`A${r}`, p.no);
         ws.mergeCells(`B${r}:D${r}`); valbi(`B${r}`, p.order, { h: "left" });
         ws.mergeCells(`E${r}:F${r}`); setCell(`E${r}`, p.sub ? (zhOn && tz(p.sub) ? `${p.sub}\n${tz(p.sub)}` : p.sub) : "", { wrap: true });
-        ws.mergeCells(`G${r}:N${r}`); valbi(`G${r}`, p.content, { h: "left", size: 9 });
+        ws.mergeCells(`G${r}:AC${r}`); valbi(`G${r}`, p.content, { h: "left", size: 9 });
         r++;
       });
       let imgRow = r + 1;
@@ -725,13 +725,17 @@ function App() {
       const bomLines = Math.max(1, Math.ceil(bomItems.length / perRow));
       ws.mergeCells(`A${bomRow}:A${bomRow + bomLines - 1}`);
       setCell(`A${bomRow}`, "BOM", { fill: "FF333333", color: "FFFFFFFF", bold: true });
-      const rowMaxLen = {};
+      // BOM 내용 셀 병합폭(열 수) → 반각 수용량 계산
+      const bomContentCols = 6;                  // colStart+1 ~ colStart+6
+      const bomCapHalf = bomContentCols * 13 - 12; // 실제 너비 - 넉넉한 패딩(경계 케이스 2줄 처리)
+      const rowMaxLines = {};
       bomItems.forEach((b, idx) => {
         const rr = bomRow + Math.floor(idx / perRow);
         const tag = b.kind === "pack" ? (zhOn ? "[辅料] " : "[부] ") : b.kind === "raw" ? (zhOn ? "[原料] " : "[원] ") : "";
         const txt = tag + b.name + (b.spec ? ` (${b.spec})` : "");
-        const w = [...txt].reduce((a, ch) => a + (/[\x00-\xff]/.test(ch) ? 1 : 2), 0);
-        rowMaxLen[rr] = Math.max(rowMaxLen[rr] || 0, w);
+        const hw = [...txt].reduce((a, ch) => a + (/[\x00-\xff]/.test(ch) ? 1 : 2), 0);
+        const needLines = Math.max(1, Math.ceil(hw / bomCapHalf));
+        rowMaxLines[rr] = Math.max(rowMaxLines[rr] || 1, needLines);
         const colStart = 2 + (idx % perRow) * 7; // 번호1 + 내용6 = 7칸 간격
         const c1 = COL(colStart);
         const nc = ws.getCell(`${c1}${rr}`); nc.value = idx + 1;
@@ -743,10 +747,8 @@ function App() {
       });
       for (let li = 0; li < bomLines; li++) {
         const rr = bomRow + li;
-        const w = rowMaxLen[rr] || 10;
-        // 내용 6칸 × 13 ≈ 반각 70 수용
-        const lines = Math.max(1, Math.ceil(w / 68));
-        ws.getRow(rr).height = Math.max(18, lines * 13 + 5);
+        const lines = rowMaxLines[rr] || 1;
+        ws.getRow(rr).height = lines * 14 + 6;   // 줄당 14pt + 여유
       }
       // 인쇄 영역 지정 (A1 ~ 마지막 BOM 행) — 한 페이지 인쇄 보장
       const lastRow = bomRow + bomLines - 1;
