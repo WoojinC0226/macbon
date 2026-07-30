@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>맥본 작업표준서(SOP) 생성기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  :root{
+    --ink:#1a1d21; --sub:#5b6570; --line:#c8ccd2; --line2:#e4e7eb;
+    --bg:#eef1f4; --panel:#ffffff; --accent:#0b6b53; --accent-soft:#e6f2ee;
+    --warn:#b4531a; --warn-soft:#fbeee4; --focus:#0b6b53;
+    --head:#f3f5f7; --shadow:0 1px 3px rgba(20,30,40,.08),0 6px 24px rgba(20,30,40,.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo",Pretendard,sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14px; line-height:1.5;
+  }
+  #root{min-height:100vh;}
+  .app{display:grid; grid-template-columns:minmax(420px,520px) 1fr; min-height:100vh;}
+  .mobile-tabs{display:none;}
+  @media(max-width:1100px){
+    .app{grid-template-columns:1fr;}
+    .mobile-tabs{display:grid; grid-template-columns:1fr 1fr; position:sticky; top:0; z-index:20; background:var(--panel); border-bottom:1px solid var(--line);}
+    .mobile-tabs button{border:none; background:transparent; padding:13px; font-family:inherit; font-size:13.5px; font-weight:700; color:var(--sub); cursor:pointer; border-bottom:2.5px solid transparent;}
+    .mobile-tabs button.on{color:var(--accent); border-bottom-color:var(--accent);}
+    .app.tab-form .previewwrap{display:none;}
+    .app.tab-preview .panel{display:none;}
+    .panel{height:auto; position:static;}
+    .brand{position:static;}
+  }
+
+  /* ===== Left: form ===== */
+  .panel{background:var(--panel); border-right:1px solid var(--line); overflow-y:auto; height:100vh; position:sticky; top:0;}
+  @media(max-width:1100px){ .panel{height:auto; position:static; border-right:none; border-bottom:1px solid var(--line);} }
+  .brand{padding:14px 20px 12px; border-bottom:1px solid var(--line2); position:sticky; top:0; background:var(--panel); z-index:8;}
+  .brand-row{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .brand h1{font-size:15px; margin:0; letter-spacing:-.2px; display:flex; align-items:center; gap:8px;}
+  .brand .tag{font-size:11px; font-weight:700; color:#fff; background:var(--accent); padding:2px 7px; border-radius:5px; letter-spacing:.3px;}
+  .brand .unsaved{font-size:11px; font-weight:700; color:var(--warn); background:var(--warn-soft); padding:2px 8px; border-radius:20px; white-space:nowrap;}
+  .toolbar{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
+  .toolbar .btn{flex:1; justify-content:center; min-width:70px;}
+
+  .sect{padding:16px 20px; border-bottom:1px solid var(--line2);}
+  .sect > h2{font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--accent); margin:0 0 12px; font-weight:800; display:flex; align-items:center; gap:8px;}
+  .sect > h2 .n{display:inline-flex; width:18px; height:18px; align-items:center; justify-content:center; background:var(--accent); color:#fff; border-radius:5px; font-size:11px;}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  .field{display:flex; flex-direction:column; gap:4px; margin-bottom:10px;}
+  .field.full{grid-column:1/-1;}
+  label{font-size:11.5px; color:var(--sub); font-weight:600;}
+  input[type=text],input[type=date],input[type=number],textarea,select{
+    font-family:inherit; font-size:13px; color:var(--ink); background:#fff;
+    border:1px solid var(--line); border-radius:7px; padding:8px 9px; width:100%;
+    transition:border-color .12s, box-shadow .12s;
+  }
+  input:focus,textarea:focus,select:focus{outline:none; border-color:var(--focus); box-shadow:0 0 0 3px var(--accent-soft);}
+  textarea{resize:vertical; min-height:60px; line-height:1.45;}
+
+  .btn{font-family:inherit; font-size:12.5px; font-weight:700; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:7px; padding:7px 11px; cursor:pointer; transition:.12s; display:inline-flex; align-items:center; gap:6px;}
+  .btn:hover{border-color:var(--accent); color:var(--accent);}
+  .btn.pri{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .btn.pri:hover{filter:brightness(1.07); color:#fff;}
+  .btn.sm{padding:4px 8px; font-size:11.5px;}
+  .btn.xs{padding:3px 7px; font-size:11px; line-height:1;}
+  .btn.danger{color:#a12; border-color:#e7c9c9;}
+  .btn.danger:hover{background:#fbeaea; border-color:#d99;}
+  .btn.ghost{border-style:dashed; color:var(--sub); width:100%; justify-content:center; margin-top:6px;}
+  .btn:disabled{opacity:.35; cursor:not-allowed;}
+  .btn:disabled:hover{border-color:var(--line); color:var(--ink);}
+
+  .req{color:#c0392b; font-weight:900;}
+  input.warn-empty{border-color:#e0b4b4; background:#fdf7f7;}
+  .mini{font-size:10px; color:#98a0a8; font-weight:400;}
+
+  .sect-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .sect-head h2{margin:0;}
+  .toggle{font-size:11.5px; color:var(--sub); display:flex; align-items:center; gap:5px; cursor:pointer; user-select:none; font-weight:600;}
+  .toggle input{width:auto; margin:0; accent-color:var(--accent);}
+  .rowbtns{display:flex; gap:4px;}
+
+  /* preset chips */
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;}
+  .chip{font-size:11px; padding:3px 8px; border:1px solid var(--line); border-radius:20px; background:#fafbfc; color:var(--sub); cursor:pointer; transition:.12s;}
+  .chip:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
+
+  /* item search dropdown */
+  .lookup{position:relative;}
+  .lookup .menu{position:absolute; z-index:30; left:0; right:0; top:calc(100% + 3px); background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); max-height:240px; overflow-y:auto;}
+  .lookup .menu-head{font-size:10px; font-weight:700; color:var(--sub); padding:6px 9px 3px; text-transform:uppercase; letter-spacing:.4px; background:var(--head);}
+  .lookup .opt{padding:7px 9px; cursor:pointer; border-bottom:1px solid var(--line2); display:flex; flex-direction:column; gap:1px;}
+  .lookup .opt:last-child{border-bottom:none;}
+  .lookup .opt:hover,.lookup .opt.active{background:var(--accent-soft);}
+  .lookup .opt .nm{font-size:12.5px; font-weight:600;}
+  .lookup .opt .meta{font-size:10.5px; color:var(--sub); display:flex; gap:6px;}
+  .lookup .opt .kind{font-size:9.5px; padding:0 5px; border-radius:8px; background:var(--head); border:1px solid var(--line2);}
+
+  /* rows (process / bom) */
+  .rowcard{border:1px solid var(--line2); border-radius:9px; padding:10px; margin-bottom:9px; background:#fcfdfe;}
+  .rowcard.slim{padding:8px 10px;}
+  .rowcard .top{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .rowcard .top .lab{font-size:11.5px; font-weight:800; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;}
+  .bom-row{display:flex; align-items:center; gap:8px;}
+  .bom-idx{flex:none; width:22px; height:22px; border-radius:6px; background:var(--accent); color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;}
+  .bom-lookup{flex:1; min-width:0;}
+  .bom-meta{font-size:10.5px; color:var(--sub); margin-top:3px;}
+  .tagpick{display:flex; gap:4px;}
+  .tagpick .t{font-size:10.5px; padding:2px 7px; border:1px solid var(--line); border-radius:6px; cursor:pointer; background:#fff; color:var(--sub);}
+  .tagpick .t.on{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+  /* image slots */
+  .imgslots{display:grid; grid-template-columns:1fr 1fr; gap:9px;}
+  .slot{border:1.5px dashed var(--line); border-radius:9px; aspect-ratio:4/3; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; cursor:pointer; position:relative; overflow:hidden; background:#fafbfc; transition:.12s; text-align:center; padding:6px;}
+  .slot:hover{border-color:var(--accent); background:var(--accent-soft);}
+  .slot.drag{border-color:var(--accent); background:var(--accent-soft);}
+  .slot .lab{font-size:11px; font-weight:700; color:var(--sub);}
+  .slot .hint{font-size:10px; color:#98a0a8;}
+  .slot.has{background:#f4f6f8; border-style:solid;}
+  .slot img{position:absolute; inset:6px; width:calc(100% - 12px); height:calc(100% - 12px); object-fit:contain;}
+  .slot .rm{position:absolute; top:4px; right:4px; z-index:2; background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:5px; font-size:11px; padding:2px 6px; cursor:pointer;}
+  .slot .cap{position:absolute; bottom:0; left:0; right:0; background:rgba(11,107,83,.9); color:#fff; font-size:10px; font-weight:700; padding:2px 0; text-align:center; z-index:2;}
+
+  /* export bar */
+  .exportbar{position:sticky; bottom:0; background:var(--panel); border-top:1px solid var(--line); padding:12px 20px; display:flex; gap:9px; z-index:6;}
+  .exportbar .btn{flex:1; justify-content:center; padding:10px;}
+
+  /* ===== Right: preview ===== */
+  .previewwrap{padding:26px; overflow:auto; height:100vh;}
+  @media(max-width:1100px){ .previewwrap{height:auto;} }
+  .pv-tools{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; color:var(--sub); font-size:12px; position:sticky; top:0; z-index:4;}
+  .pv-left{display:flex; align-items:center; gap:8px;}
+  .pv-tools .dot{width:6px; height:6px; border-radius:50%; background:var(--accent);}
+  .pv-zoom{display:flex; align-items:center; gap:4px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:3px; box-shadow:var(--shadow);}
+  .zbtn{width:28px; height:26px; border:none; background:transparent; border-radius:6px; font-size:15px; cursor:pointer; color:var(--ink); display:flex; align-items:center; justify-content:center;}
+  .zbtn:hover{background:var(--accent-soft); color:var(--accent);}
+  .zbtn.wide{width:auto; padding:0 10px; font-size:12px; font-weight:700;}
+  .zbtn.on{background:var(--accent); color:#fff;}
+  .zlvl{font-size:12px; font-weight:700; min-width:40px; text-align:center; color:var(--ink);}
+  .sheet-scale-outer{width:100%;}
+  .sheet-scale{transform-origin:top left; transition:transform .1s ease;}
+
+  /* A4 landscape sheet */
+  .sheet{background:#fff; width:1123px; min-height:794px; margin:0 auto; box-shadow:var(--shadow); padding:0; color:#000; font-size:11px;}
+  .sheet *{box-sizing:border-box;}
+  .sop{border:1.5px solid #000; border-collapse:collapse; width:100%; table-layout:fixed;}
+  .sop td,.sop th{border:1px solid #000; padding:3px 5px; vertical-align:middle; word-break:break-word;}
+  .sop .title{font-size:18px; font-weight:800; text-align:center; letter-spacing:4px; padding:8px;}
+  .lbl{background:#f0f0f0; font-weight:700; text-align:center; font-size:10.5px;}
+  .ctr{text-align:center;} .lft{text-align:left;}
+  .warn-cell{white-space:pre-line; text-align:left; font-size:10px; line-height:1.45; vertical-align:top;}
+  .proc-head td{background:#e8e8e8; font-weight:700; text-align:center; font-size:11px;}
+  .proc-content{white-space:pre-line; text-align:left; line-height:1.4;}
+  .subtag{display:inline-block; font-size:9.5px; background:#eef4f2; border:1px solid #cfe0da; border-radius:3px; padding:0 4px; margin-right:4px; color:#0b6b53; font-weight:700;}
+  .imgcell{padding:0; height:118px; position:relative; text-align:center;}
+  .imgcell img{max-width:100%; max-height:100%; object-fit:contain;}
+  .imgcell .ph{color:#bbb; font-size:10px; height:100%; display:flex; align-items:center; justify-content:center;}
+  .imgcell .cp{position:absolute; top:0; left:0; right:0; background:#f0f0f0; font-size:9px; font-weight:700; border-bottom:1px solid #000; padding:1px;}
+  .bom-lbl{background:#333; color:#fff; font-weight:800; text-align:center;}
+  .empty-hint{color:#c00; font-style:italic;}
+
+  @media print{
+    body{background:#fff;}
+    .panel,.pv-tools{display:none !important;}
+    .app{display:block;}
+    .previewwrap{padding:0; height:auto; overflow:visible;}
+    .sheet{box-shadow:none; width:auto; margin:0;}
+    @page{size:A4 landscape; margin:8mm;}
+  }
+  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#1a1d21; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:100; box-shadow:var(--shadow);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>window.ITEMS = [{"c":"00003","n":"배송비","k":"무형상품","s":""},{"c":"00004","n":"샘플","k":"상품","s":""},{"c":"CM01-0001","n":"凡士林","k":"원재료","s":"1kg"},{"c":"CM01-0003","n":"1.8 二氮杂二环","k":"원재료","s":"1kg"},{"c":"CM01-0004","n":"M301","k":"원재료","s":"1kg"},{"c":"CM01-0005","n":"K-10","k":"원재료","s":"1kg"},{"c":"CM01-0006","n":"BP03","k":"원재료","s":"1kg"},{"c":"CM01-0007","n":"氰基丙酸乙酯胶黏剂 河北单体","k":"원재료","s":"1kg"},{"c":"CM01-0008","n":"NL14CQ","k":"원재료","s":"1kg"},{"c":"CM01-0009","n":"NL14CQ-H","k":"원재료","s":"1kg"},{"c":"CM01-0010","n":"A480 黑","k":"원재료","s":"1kg"},{"c":"CM01-0011","n":"A480 无色","k":"원재료","s":"1kg"},{"c":"CM01-0012","n":"1000 黑","k":"원재료","s":"1kg"},{"c":"CM01-0013","n":"CN1000 无色","k":"원재료","s":"1kg"},{"c":"CM01-0014","n":"M280","k":"원재료","s":"1kg"},{"c":"CM01-0015","n":"PBN","k":"원재료","s":"1kg"},{"c":"CM01-0016","n":"HA","k":"원재료","s":"1kg"},{"c":"CM01-0017","n":"M449（聚甲基丙烯酸甲酯）","k":"원재료","s":"1kg"},{"c":"CM01-0018","n":"SO2","k":"원재료","s":"1kg"},{"c":"CM01-0019","n":"18-6","k":"원재료","s":"1kg"},{"c":"CM01-0020","n":"国产丁内酯","k":"원재료","s":"1kg"},{"c":"CM01-0021","n":"BHA","k":"원재료","s":"1kg"},{"c":"CM01-0023","n":"BF3","k":"원재료","s":"1kg"},{"c":"CM01-0024","n":"PA","k":"원재료","s":"1kg"},{"c":"CM01-0025","n":"进口丁内酯（GBL）","k":"원재료","s":"1kg"},{"c":"CM01-0026-1","n":"膨润土（增稠防沉剂）JWST-01","k":"원재료","s":"1kg"},{"c":"CM01-0027","n":"TIO2","k":"원재료","s":"1kg"},{"c":"CM01-0028","n":"发泡剂DU461","k":"원재료","s":"1kg"},{"c":"CM01-0029","n":"AVC","k":"원재료","s":"1kg"},{"c":"CM01-0030","n":"卡波姆980","k":"원재료","s":"1kg"},{"c":"CM01-0031","n":"芦荟 A97337","k":"원재료","s":"1kg"},{"c":"CM01-0032","n":"ㅕ9","k":"원재료","s":"1kg"},{"c":"CM01-0033","n":"百合 A97339","k":"원재료","s":"1kg"},{"c":"CM01-0034","n":"薰衣草 A97340","k":"원재료","s":"1kg"},{"c":"CM01-0035","n":"香草 A97341","k":"원재료","s":"1kg"},{"c":"CM01-0036","n":"玫瑰 A97342","k":"원재료","s":"1kg"},{"c":"CM01-0037","n":"茉莉 A97343","k":"원재료","s":"1kg"},{"c":"CM01-0038","n":"青瓜 A97344","k":"원재료","s":"1kg"},{"c":"CM01-0039","n":"葡萄 A97345","k":"원재료","s":"1kg"},{"c":"CM01-0040","n":"柠檬 A97346","k":"원재료","s":"1kg"},{"c":"CM01-0041","n":"青苹果 A97347","k":"원재료","s":"1kg"},{"c":"CM01-0042","n":"香蕉 A97348","k":"원재료","s":"1kg"},{"c":"CM01-0043","n":"草莓 A97349","k":"원재료","s":"1kg"},{"c":"CM01-0044","n":"芒果 A97350","k":"원재료","s":"1kg"},{"c":"CM01-0045","n":"哈密瓜(香瓜) A97351","k":"원재료","s":"1kg"},{"c":"CM01-0046","n":"巧克力 A97352","k":"원재료","s":"1kg"},{"c":"CM01-0047","n":"黑莓 A97353","k":"원재료","s":"1kg"},{"c":"CM01-0048","n":"布朗尼 A97354","k":"원재료","s":"1kg"},{"c":"CM01-0049","n":"椰林飘香 A97355","k":"원재료","s":"1kg"},{"c":"CM01-0050","n":"桃子 A99285","k":"원재료","s":"1kg"},{"c":"CM01-0051","n":"樱桃 A99284","k":"원재료","s":"1kg"},{"c":"CM01-0052","n":"英国梨 English pear B91477","k":"원재료","s":"1kg"},{"c":"CM01-0053","n":"蓝风铃 Wild Bluebell B91478","k":"원재료","s":"1kg"},{"c":"CM01-0054","n":"香奈儿93（EAU TENDRE） A99793","k":"원재료","s":"1kg"},{"c":"CM01-0055","n":"香奈儿94（EAU FRAICHE）A99794","k":"원재료","s":"1kg"},{"c":"CM01-0056","n":"99.75% 酒精","k":"원재료","s":"1kg"},{"c":"CM01-0057","n":"HPC","k":"원재료","s":"1kg"},{"c":"CM01-0058","n":"消泡剂BYK019","k":"원재료","s":"1kg"},{"c":"CM01-0059","n":"TG-8811","k":"원재료","s":"1kg"},{"c":"CM01-0060","n":"食用酒精 （脱醛脱味）","k":"원재료","s":"1kg"},{"c":"CM01-0061","n":"角蛋白 Keratine amin","k":"원재료","s":"1kg"},{"c":"CM01-0062","n":"壳聚糖 Kitosan liquid","k":"원재료","s":"1kg"},{"c":"CM01-0063","n":"PK45(45%CAB)","k":"원재료","s":"1kg"},{"c":"CM01-0064","n":"纯净水","k":"원재료","s":"1kg"},{"c":"CM01-0065","n":"HEC","k":"원재료","s":"1kg"},{"c":"CM01-0066","n":"L-8066U","k":"원재료","s":"1kg"},{"c":"CM01-0067","n":"颜料 BATIK 红","k":"원재료","s":"1kg"},{"c":"CM01-0068","n":"颜料 BATIK 绿","k":"원재료","s":"1kg"},{"c":"CM01-0069","n":"颜料 KCC 黄","k":"원재료","s":"1kg"},{"c":"CM01-0070","n":"颜料 KCC 绿","k":"원재료","s":"1kg"},{"c":"CM01-0071","n":"颜料 KCC 青","k":"원재료","s":"1kg"},{"c":"CM01-0072","n":"颜料 KCC 红","k":"원재료","s":"1kg"},{"c":"CM01-0073","n":"颜料 KCC 黑","k":"원재료","s":"1kg"},{"c":"CM01-0074","n":"炭黑 S-100","k":"원재료","s":"1kg"},{"c":"CM01-0075","n":"炭黑增稠 K-500","k":"원재료","s":"1kg"},{"c":"CM01-0076","n":"RED 浓缩液（粉）","k":"원재료","s":"1kg"},{"c":"CM01-0077","n":"颜料 紫色","k":"원재료","s":"1kg"},{"c":"CM01-0079","n":"椰子 B92911","k":"원재료","s":"1kg"},{"c":"CM01-0080","n":"甘油","k":"원재료","s":"1kg"},{"c":"CM01-0081","n":"甘油","k":"원재료","s":"kg"},{"c":"CM01-0085","n":"PU 增稠流平剂 UH420","k":"원재료","s":"1kg"},{"c":"CM01-0086","n":"PU 增稠流平剂 UH530","k":"원재료","s":"1kg"},{"c":"CM01-0087","n":"ET-15CQ","k":"원재료","s":"1kg"},{"c":"CM01-0090","n":"Pegar-LJ-4002","k":"원재료","s":"1kg"},{"c":"CM01-0091","n":"300-CN300","k":"원재료","s":"1kg"},{"c":"CM01-0092","n":"白油 P-55","k":"원재료","s":"1kg"},{"c":"CM01-0093","n":"植物舒敏剂","k":"원재료","s":"1kg"},{"c":"CM01-0094","n":"中和剂","k":"원재료","s":"1kg"},{"c":"CM01-0095","n":"I A","k":"원재료","s":"1kg"},{"c":"CM01-0096","n":"Toluene","k":"원재료","s":"1kg"},{"c":"CM01-0098","n":"红没药醇","k":"원재료","s":"1kg"},{"c":"CM01-0099","n":"LRI","k":"원재료","s":"1kg"},{"c":"CM01-0100","n":"OP301","k":"원재료","s":"1kg"},{"c":"CM01-0101","n":"碳酸丙烯酯-非化妆品","k":"원재료","s":"1kg"},{"c":"CM01-0102","n":"SW266","k":"원재료","s":"1kg"},{"c":"CM01-0103","n":"水性草莓2107","k":"원재료","s":"1kg"},{"c":"CM01-0104","n":"碳黑 DIK501S","k":"원재료","s":"1kg"},{"c":"CM01-0105","n":"PE9010","k":"원재료","s":"1kg"},{"c":"CM01-0106","n":"丙烯酸乳液 7049","k":"원재료","s":"1kg"},{"c":"CM01-0107","n":"油性菠萝5012","k":"원재료","s":"1kg"},{"c":"CM01-0108","n":"栀子花香精","k":"원재료","s":"1kg"},{"c":"CM01-0109","n":"荧光绿色粉 YGP210","k":"원재료","s":"1kg"},{"c":"CM01-0110","n":"水性哈密瓜1038 1038（松崎专用）","k":"원재료","s":"1kg"},{"c":"CM01-0111","n":"二氧化硅 增稠剂 Aerosil 202","k":"원재료","s":"1kg"},{"c":"CM01-0112","n":"异十六烷","k":"원재료","s":"1kg"},{"c":"CM01-0113","n":"异十二烷","k":"원재료","s":"1kg"},{"c":"CM01-0114","n":"苯氧乙醇","k":"원재료","s":"1kg"},{"c":"CM01-0115","n":"KL2(糊精棕榈酸酯)","k":"원재료","s":"1kg"},{"c":"CM01-0116","n":"BENTONE GEL ISD V","k":"원재료","s":"1kg"},{"c":"CM01-0117","n":"水性甜橙3465","k":"원재료","s":"1kg"},{"c":"CM01-0118","n":"吐温-20 (聚山梨醇醋-20)","k":"원재료","s":"1kg"},{"c":"CM01-0119","n":"V-220F (VP/二十碳烯共聚物)","k":"원재료","s":"1kg"},{"c":"CM01-0120","n":"G1701","k":"원재료","s":"1kg"},{"c":"CM01-0121","n":"MQ-1640 Flake","k":"원재료","s":"1kg"},{"c":"CM01-0122","n":"百合1328 （国产）","k":"원재료","s":"1kg"},{"c":"CM01-0123","n":"芦荟1329 （国产）","k":"원재료","s":"1kg"},{"c":"CM01-0124","n":"丙烯酸乳液 7531","k":"원재료","s":"1kg"},{"c":"CM01-0125","n":"丙烯酸乳液 7531-防冻","k":"원재료","s":"1kg"},{"c":"CM01-0126","n":"佛手柑香料（国产）","k":"원재료","s":"1kg"},{"c":"CM01-0127","n":"2-丙二醇","k":"원재료","s":"1kg"},{"c":"CM01-0128","n":"294-水性牛油果香精","k":"원재료","s":"1kg"},{"c":"CM01-0129","n":"FDA-炭黑 WD-CB2","k":"원재료","s":"1kg"},{"c":"CM01-0130","n":"wp-108 707F 大地红色浆","k":"원재료","s":"1kg"},{"c":"CM01-0131","n":"维生素E","k":"원재료","s":"1kg"},{"c":"CM01-0132","n":"洋甘菊精华","k":"원재료","s":"1kg"},{"c":"CM01-0133","n":"咖啡香精","k":"원재료","s":"1kg"},{"c":"CM01-0134","n":"三乙醇胺","k":"원재료","s":"1kg"},{"c":"CM01-0135","n":"1,3-丁二醇","k":"원재료","s":"1kg"},{"c":"CM01-0136","n":"Carfil 9120NP","k":"원재료","s":"1kg"},{"c":"CM01-0137","n":"Carfil 9221","k":"원재료","s":"1kg"},{"c":"CM01-0138","n":"樱桃香精（国内）","k":"원재료","s":"1kg"},{"c":"CM01-0139","n":"进口玫瑰香精","k":"원재료","s":"1kg"},{"c":"CM01-0140","n":"芦荟香精","k":"원재료","s":"1kg"},{"c":"CM01-0141","n":"C9-C12烷烃","k":"원재료","s":"1kg"},{"c":"CM01-0142","n":"Carfil®9241NP","k":"원재료","s":"1kg"},{"c":"CM01-0143","n":"乙二醇","k":"원재료","s":"1kg"},{"c":"CM01-0144","n":"DH-B15919， 芦荟2#","k":"원재료","s":"1kg"},{"c":"CM01-0145","n":"蓝色（BLUE）嫁接胶水蓝色","k":"원재료","s":"1kg"},{"c":"CM01-0146","n":"4005-004,丙烯酸乳液","k":"원재료","s":"1kg"},{"c":"CM01-0147","n":"QT9-30-CG","k":"원재료","s":"1kg"},{"c":"CM01-0148","n":"Silmer Q20","k":"원재료","s":"1kg"},{"c":"CM01-0149","n":"玫瑰味香精 油性?","k":"원재료","s":"1kg"},{"c":"CM01-0150","n":"9121NP","k":"원재료","s":"1kg"},{"c":"CM01-0151","n":"Carfil®9235NP","k":"원재료","s":"1kg"},{"c":"CM01-0152","n":"1278H","k":"원재료","s":"1kg"},{"c":"CM01-0153","n":"GS8083","k":"원재료","s":"1kg"},{"c":"CM01-0154","n":"异壬酸异壬酯","k":"원재료","s":"1kg"},{"c":"CM01-0155","n":"膨润土","k":"원재료","s":"1kg"},{"c":"CM01-0156","n":"季铵盐-18膨润土","k":"원재료","s":"1kg"},{"c":"CM01-0157","n":"葡萄(VITISVINIFERA)籽油","k":"원재료","s":"1kg"},{"c":"CM01-0158","n":"山梨(糖)醇","k":"원재료","s":"1kg"},{"c":"CM01-0159","n":"PC","k":"원재료","s":"1kg"},{"c":"CM01-0160","n":"月桂基葡糖苷（APG1200）","k":"원재료","s":"1kg"},{"c":"CM01-0161","n":"癸基葡糖苷（APG2000）","k":"원재료","s":"1kg"},{"c":"CM01-0162","n":"月桂酰两性基乙酸钠（Dehyton ML）","k":"원재료","s":"1kg"},{"c":"CM01-0163","n":"橄榄油PEG-7 酯类（水溶霍霍巴油）","k":"원재료","s":"1kg"},{"c":"CM01-0164","n":"柠檬酸（AR）（一水柠檬酸）","k":"원재료","s":"1kg"},{"c":"CM01-0165","n":"SpecPure HK 水解角蛋白","k":"원재료","s":"1kg"},{"c":"CM01-0166","n":"油溶水蜜桃香精","k":"원재료","s":"1kg"},{"c":"CM01-0167","n":"AEROSIL® R 972 二氧化硅","k":"원재료","s":"1kg"},{"c":"CM01-0168","n":"WIDELASH#生物素酰三肽-1","k":"원재료","s":"1kg"},{"c":"CM01-0169","n":"FDA炭黑，联楷，W-306","k":"원재료","s":"1kg"},{"c":"CM01-0170","n":"黑色色浆，W-686","k":"원재료","s":"1kg"},{"c":"CM01-0171","n":"丙烯酸乳液8183","k":"원재료","s":"1kg"},{"c":"CM01-0172","n":"乙二胺四乙酸二钠","k":"원재료","s":"1kg"},{"c":"CM01-0173","n":"甘草酸二钾","k":"원재료","s":"1kg"},{"c":"CM01-0174","n":"磷酸氢二钠","k":"원재료","s":"1kg"},{"c":"CM01-0175","n":"解语花香精","k":"원재료","s":"1kg"},{"c":"CM01-0176","n":"联锴 B5 蓝色颜料（样品）","k":"원재료","s":"1kg"},{"c":"CM01-0177","n":"联锴 R40 红色颜料（样品）","k":"원재료","s":"1kg"},{"c":"CM01-0178","n":"颜料 BATIK 黄","k":"원재료","s":"1kg"},{"c":"CM01-0179","n":"B25（BASF）","k":"원재료","s":"1kg"},{"c":"CM01-0180","n":"CO 40（BASF）","k":"원재료","s":"1kg"},{"c":"CM01-0181","n":"L-6330U","k":"원재료","s":"1kg"},{"c":"CM01-0182","n":"Sumecton-sen","k":"원재료","s":"1kg"},{"c":"CM01-0183","n":"馨鲜酮SymSave® H（Symrise）","k":"원재료","s":"1kg"},{"c":"CM01-0184","n":"己二醇","k":"원재료","s":"1kg"},{"c":"CM01-0185","n":"D泛醇（BASF）","k":"원재료","s":"1kg"},{"c":"CM01-0186","n":"烟酰胺 PC（DSM）","k":"원재료","s":"1kg"},{"c":"CM01-0187","n":"酶切寡聚透明质酸钠","k":"원재료","s":"1kg"},{"c":"CM01-0188","n":"水解蚕丝蛋白","k":"원재료","s":"1kg"},{"c":"CM01-0189","n":"玛卡多肽","k":"원재료","s":"1kg"},{"c":"CM01-0190","n":"乙酰基六肽-8","k":"원재료","s":"1kg"},{"c":"CM01-0191","n":"薄荷香精","k":"원재료","s":"1kg"},{"c":"CM01-0192","n":"鲸蜡硬脂醇C6-18醇","k":"원재료","s":"1kg"},{"c":"CM01-0193","n":"S21（硬脂醇聚醚-21）","k":"원재료","s":"1kg"},{"c":"CM01-0194","n":"S2（硬脂醇聚醚-2）","k":"원재료","s":"1kg"},{"c":"CM01-0195","n":"羟乙二磷酸 60%水溶液","k":"원재료","s":"1kg"},{"c":"CM01-0196","n":"乙醇胺 AR 99%","k":"원재료","s":"1kg"},{"c":"CM01-0197","n":"巯基乙酸铵","k":"원재료","s":"1kg"},{"c":"CM01-0198","n":"紫罗兰香精（烫剂专用）","k":"원재료","s":"1kg"},{"c":"CM01-0199","n":"二硫代二甘醇酸二铵 45%的水溶液","k":"원재료","s":"1kg"},{"c":"CM01-0200","n":"碳酸氢铵 AR","k":"원재료","s":"1kg"},{"c":"CM01-0201","n":"联锴 Y5 黄色颜料（样品）","k":"원재료","s":"1kg"},{"c":"CM01-0202","n":"联锴 B1蓝色颜料（样品）","k":"원재료","s":"1kg"},{"c":"CM01-0203","n":"联锴 氧化铁红Cosllary aq 610R（样品）","k":"원재료","s":"1kg"},{"c":"CM01-0204","n":"K1（临时代号）","k":"원재료","s":"1kg"},{"c":"CM01-0205","n":"MOE-15","k":"원재료","s":"1kg"},{"c":"CM01-0206","n":"田野薄荷(MENTHA ARVENSIS)叶油","k":"원재료","s":"1kg"},{"c":"CM01-0207","n":"柠檬(CITRUS LIMON)果皮油","k":"원재료","s":"1kg"},{"c":"CM01-0208","n":"二氯苯甲醇","k":"원재료","s":"1kg"},{"c":"CM01-0209","n":"BT85 山嵛基三甲基氯化铵","k":"원재료","s":"1kg"},{"c":"CM01-0210","n":"18醇 硬脂醇","k":"원재료","s":"1kg"},{"c":"CM01-0211","n":"瓜尔胶C-14S","k":"원재료","s":"1kg"},{"c":"CM01-0212","n":"双丙甘醇","k":"원재료","s":"1kg"},{"c":"CM01-0213","n":"K30","k":"원재료","s":"1kg"},{"c":"CM01-0214","n":"H-10","k":"원재료","s":"1kg"},{"c":"CM01-0215","n":"西瓜香精 （安你心）样品","k":"원재료","s":"1kg"},{"c":"CM01-0216","n":"精氨酸","k":"원재료","s":"1kg"},{"c":"CM01-0217","n":"Emulgade 165","k":"원재료","s":"1kg"},{"c":"CM01-0218","n":"16醇(鲸蜡醇)","k":"원재료","s":"1kg"},{"c":"CM01-0219","n":"DM100（瓦克）","k":"원재료","s":"1kg"},{"c":"CM01-0220","n":"S-9010 荧光紫罗兰颜料（样品）","k":"원재료","s":"1kg"},{"c":"CM01-0221","n":"甲氧基 T60","k":"원재료","s":"1kg"},{"c":"CM01-0222","n":"PERMANENT E30760","k":"원재료","s":"1kg"},{"c":"CM01-0223","n":"051DU40 发泡剂","k":"원재료","s":"1kg"},{"c":"CM01-0224","n":"聚乙烯醇","k":"원재료","s":"1kg"},{"c":"CM01-0225","n":"合成蜡","k":"원재료","s":"1kg"},{"c":"CM01-0226","n":"7.9%过氧化氢水溶液","k":"원재료","s":"1kg"},{"c":"CM01-0227","n":"Emulgade 1000Ni","k":"원재료","s":"1kg"},{"c":"CM01-0228","n":"NL-30CQ","k":"원재료","s":"1kg"},{"c":"CM01-0229","n":"BLUE GRAN RR 蓝色染料","k":"원재료","s":"1kg"},{"c":"CM01-0230","n":"RED 5B GRAN 红色染料","k":"원재료","s":"1kg"},{"c":"CM01-0231","n":"Cyanon SVF","k":"원재료","s":"1kg"},{"c":"CM01-0232","n":"溴酸钠","k":"원재료","s":"1kg"},{"c":"CM01-0233","n":"L401","k":"원재료","s":"1kg"},{"c":"CM01-0234","n":"备案用乙醇","k":"원재료","s":"1kg"},{"c":"CM01-0235","n":"SAG95956 果香 烫剂用","k":"원재료","s":"1kg"},{"c":"CM01-0236","n":"SAG95958 花香 烫剂用","k":"원재료","s":"1kg"},{"c":"CM01-0237","n":"CM01-0237","k":"원재료","s":"1kg"},{"c":"CM01-0240","n":"CM01-0240","k":"원재료","s":"1kg"},{"c":"CM01-0244","n":"CM01-0244","k":"원재료","s":"1kg"},{"c":"CM01-0250","n":"CM01-0250","k":"원재료","s":"1kg"},{"c":"MB01-0001","n":"Adhesive (KC136)","k":"반제품","s":""},{"c":"MB01-0002","n":"Adhesive (KC136-투명)","k":"반제품","s":""},{"c":"MB01-0003","n":"Adhesive (KC136-J)","k":"반제품","s":""},{"c":"MB01-0004","n":"Adhesive (KC136-H)","k":"반제품","s":""},{"c":"MB01-0005","n":"Adhesive (KC200)","k":"반제품","s":""},{"c":"MB01-0006","n":"Adhesive (KC200AG)","k":"반제품","s":""},{"c":"MB01-0007","n":"Adhesive (KC301)","k":"반제품","s":""},{"c":"MB01-0008","n":"Adhesive (V801)","k":"반제품","s":""},{"c":"MB01-0009","n":"Adhesive (V802)","k":"반제품","s":""},{"c":"MB01-0010","n":"Adhesive (V803)","k":"반제품","s":""},{"c":"MB01-0011","n":"Adhesive (V804)","k":"반제품","s":""},{"c":"MB01-0012","n":"Adhesive (TH130-A)","k":"반제품","s":""},{"c":"MB01-0013","n":"Adhesive (TH130-B)","k":"반제품","s":""},{"c":"MB01-0014","n":"Adhesive (TH130-C)","k":"반제품","s":""},{"c":"MB01-0015","n":"Adhesive (TH-A)","k":"반제품","s":""},{"c":"MB01-0016","n":"Adhesive (TH-B)","k":"반제품","s":""},{"c":"MB01-0017","n":"Adhesive (CM81)","k":"반제품","s":""},{"c":"MB01-0018","n":"Adhesive (CM82)","k":"반제품","s":""},{"c":"MB01-0019","n":"Adhesive (CM83)","k":"반제품","s":""},{"c":"MB01-0020","n":"Adhesive (CM84)","k":"반제품","s":""},{"c":"MB01-0021","n":"Adhesive (S613)","k":"반제품","s":""},{"c":"MB01-0022","n":"Adhesive (S614)","k":"반제품","s":""},{"c":"MB01-0023","n":"Adhesive (S615)","k":"반제품","s":""},{"c":"MB01-0024","n":"Adhesive (EV-2)","k":"반제품","s":""},{"c":"MB01-0025","n":"Adhesive (K158-R9)","k":"반제품","s":""},{"c":"MB01-0026","n":"Adhesive (O-909)","k":"반제품","s":""},{"c":"MB01-0027","n":"Adhesive (O-919)","k":"반제품","s":""},{"c":"MB01-0028","n":"Adhesive (O-1009)","k":"반제품","s":""},{"c":"MB01-0029","n":"Adhesive (O-1201)","k":"반제품","s":""},{"c":"MB01-0030","n":"Adhesive (O-1211)","k":"반제품","s":""},{"c":"MB01-0031","n":"Adhesive (O-1301)","k":"반제품","s":""},{"c":"MB01-0032","n":"Adhesive (O-1311)","k":"반제품","s":""},{"c":"MB01-0033","n":"Remover (U-303)","k":"반제품","s":""},{"c":"MB01-0034","n":"Remover (U-304)","k":"반제품","s":""},{"c":"MB01-0035","n":"Remover (K25)","k":"반제품","s":""},{"c":"MB01-0036","n":"Remover (K25-분홍색-복숭아향)","k":"반제품","s":""},{"c":"MB01-0037","n":"Remover (K25-보라색-허브향)","k":"반제품","s":""},{"c":"MB01-0038","n":"Remover (K26)","k":"반제품","s":""},{"c":"MB01-0039","n":"Remover (K27)","k":"반제품","s":""},{"c":"MB01-0040","n":"Remover (R145)","k":"반제품","s":""},{"c":"MB01-0041","n":"Remover (R145-GBL90%)","k":"반제품","s":""},{"c":"MB01-0042","n":"Remover (TS01)","k":"반제품","s":""},{"c":"MB01-0043","n":"Remover (TS01(DL))","k":"반제품","s":""},{"c":"MB01-0044","n":"Remover (T61)","k":"반제품","s":""},{"c":"MB01-0045","n":"Remover (T08)","k":"반제품","s":""},{"c":"MB01-0046","n":"Cleansing (CL-S)","k":"반제품","s":""},{"c":"MB01-0047","n":"Cleansing (M01)","k":"반제품","s":""},{"c":"MB01-0048","n":"Cleansing (M01-시트러스향:D39049)","k":"반제품","s":""},{"c":"MB01-0049","n":"Cleansing (M01-허브향:C94445)","k":"반제품","s":""},{"c":"MB01-0050","n":"Cleansing (M01-복숭아향)","k":"반제품","s":""},{"c":"MB01-0051","n":"Pre-treatment (P11D)","k":"반제품","s":""},{"c":"MB01-0052","n":"Pre-treatment (P11D-복숭아향)","k":"반제품","s":""},{"c":"MB01-0053","n":"Pre-treatment (AT26)","k":"반제품","s":""},{"c":"MB01-0054","n":"Super Bonder (AC95)","k":"반제품","s":""},{"c":"MB01-0055","n":"Moisturizer (V507)","k":"반제품","s":""},{"c":"MB01-0056","n":"Moisturizer (V507-H(KR))","k":"반제품","s":""},{"c":"MB01-0057","n":"Moisturizer (CT60)","k":"반제품","s":""},{"c":"MB01-0058","n":"Moisturizer (CT62)","k":"반제품","s":""},{"c":"MB01-0059","n":"Moisturizer (CT66)","k":"반제품","s":""},{"c":"MB01-0060","n":"Eyelash Fixer (H501-P (9000cps))","k":"반제품","s":""},{"c":"MB01-0061","n":"Eyelash Fixer (H501-H (9000cps))","k":"반제품","s":""},{"c":"MB01-0062","n":"Eyelash Fixer (H501-P (18000cps))","k":"반제품","s":""},{"c":"MB01-0063","n":"Eyelash Fixer (H501-H (18000cps))","k":"반제품","s":""},{"c":"MB01-0064","n":"Eyelash Fixer (AL02)","k":"반제품","s":""},{"c":"MB01-0065","n":"Eyelash Serum (H501-R3)","k":"반제품","s":""},{"c":"MB01-0066","n":"Eyelash Serum (H504)","k":"반제품","s":""},{"c":"MB01-0067","n":"Eyelash Serum (H501PRO)","k":"반제품","s":""},{"c":"MB01-0068","n":"Eyelash Serum (H501-GS)","k":"반제품","s":""},{"c":"MB01-0069","n":"Lash Lifting Perm (JT-TG8-1)","k":"반제품","s":""},{"c":"MB01-0070","n":"Lash Lifting Perm (JT-TG9-1)","k":"반제품","s":""},{"c":"MB01-0071","n":"Lash Lifting Perm (JT-TG8-1-AG)","k":"반제품","s":""},{"c":"MB01-0072","n":"Lash Fixing Perm (JT-BR8-2)","k":"반제품","s":""},{"c":"MB01-0073","n":"Lash Fixing Perm (JT-HP9-2)","k":"반제품","s":""},{"c":"MB01-0074","n":"Lash Fixing Perm (JT-BR8-2-AG-진파랑색)","k":"반제품","s":""},{"c":"MB01-0075","n":"Lash Treatment (JT-TRT-3)","k":"반제품","s":""},{"c":"MB01-0076","n":"Moisturizer (ST19)","k":"반제품","s":""},{"c":"MB01-0077","n":"Moisturizer (PN01)","k":"반제품","s":""},{"c":"MB01-0078","n":"Moisturizer (PN03)","k":"반제품","s":""},{"c":"MB01-0079","n":"Moisturizer (PN03C)","k":"반제품","s":""},{"c":"MB01-0080","n":"Moisturizer (B36)","k":"반제품","s":""},{"c":"MB01-0081","n":"Moisturizer (B36-WT)","k":"반제품","s":""},{"c":"MB01-0082","n":"Moisturizer (B36-WP)","k":"반제품","s":""},{"c":"MB01-0083","n":"Moisturizer (B36-WT-R2-과일향)","k":"반제품","s":""},{"c":"MB01-0084","n":"Lash Lifting Perm (JT-TG8-1-연분홍색-A향)","k":"반제품","s":""},{"c":"MB01-0085","n":"Lash Lifting Perm (JT-TG8-1-연분홍색-B향)","k":"반제품","s":""},{"c":"MB01-0086","n":"Lash Lifting Perm (JT-TG8-1-연분홍색-C향)","k":"반제품","s":""},{"c":"MB01-0087","n":"Lash Lifting Perm (JT-TG8-1-연파랑색-A향)","k":"반제품","s":""},{"c":"MB01-0088","n":"Lash Lifting Perm (JT-TG8-1-연파랑색-B향)","k":"반제품","s":""},{"c":"MB01-0089","n":"Lash Lifting Perm (JT-TG8-1-연파랑색-C향)","k":"반제품","s":""},{"c":"MB01-0090","n":"Lash Lifting Perm (JT-TG8-1-연초록색-A향)","k":"반제품","s":""},{"c":"MB01-0091","n":"Lash Lifting Perm (JT-TG8-1-연초록색-B향)","k":"반제품","s":""},{"c":"MB01-0092","n":"Lash Lifting Perm (JT-TG8-1-연초록색-C향)","k":"반제품","s":""},{"c":"MB01-0093","n":"Lash Lifting Perm (JT-TG8-1-연보라색-A향)","k":"반제품","s":""},{"c":"MB01-0094","n":"Lash Lifting Perm (JT-TG8-1-연보라색-B향)","k":"반제품","s":""},{"c":"MB01-0095","n":"Lash Lifting Perm (JT-TG8-1-연보라색-C향)","k":"반제품","s":""},{"c":"MB01-0096","n":"Lash Lifting Perm (JT-TG9-1-연분홍색-A향)","k":"반제품","s":""},{"c":"MB01-0097","n":"Lash Lifting Perm (JT-TG9-1-연분홍색-B향)","k":"반제품","s":""},{"c":"MB01-0098","n":"Lash Lifting Perm (JT-TG9-1-연분홍색-C향)","k":"반제품","s":""},{"c":"MB01-0099","n":"Lash Lifting Perm (JT-TG9-1-연파랑색-A향)","k":"반제품","s":""},{"c":"MB01-0100","n":"Lash Lifting Perm (JT-TG9-1-연파랑색-B향)","k":"반제품","s":""},{"c":"MB01-0101","n":"Lash Lifting Perm (JT-TG9-1-연파랑색-C향)","k":"반제품","s":""},{"c":"MB01-0102","n":"Lash Fixing Perm (JT-BR8-2-연분홍색)","k":"반제품","s":""},{"c":"MB01-0103","n":"Lash Fixing Perm (JT-BR8-2-연파랑색)","k":"반제품","s":""},{"c":"MB01-0104","n":"Lash Fixing Perm (JT-BR8-2-연주황색)","k":"반제품","s":""},{"c":"MB01-0105","n":"Lash Fixing Perm (JT-BR8-2-연노랑색)","k":"반제품","s":""},{"c":"MB01-0106","n":"Cleanser (AT18)","k":"반제품","s":""},{"c":"MB01-0107","n":"Remover (R125-S (15000cps))","k":"반제품","s":""},{"c":"MB01-0108","n":"Lash Lifting Perm (JT-TG8-1-A향)","k":"반제품","s":""},{"c":"MB01-0109","n":"Adhesive (TH118)","k":"반제품","s":""},{"c":"MB01-0110","n":"Cleansing (M01-장미향:E34081)","k":"반제품","s":""},{"c":"MB01-0111","n":"Adhesive (CM81-R)","k":"반제품","s":"1kg"},{"c":"MB01-0112","n":"Adhesive (K168)","k":"반제품","s":"1kg"},{"c":"MB01-0113","n":"Adhesive (K168-G)","k":"반제품","s":"1kg"},{"c":"MB01-0114","n":"Adhesive (K194)","k":"반제품","s":"1kg"},{"c":"MB01-0115","n":"Moisturizer (BO-46)","k":"반제품","s":""},{"c":"MB01-0116","n":"Moisturizer (B36-WS)","k":"반제품","s":""},{"c":"MB01-0117","n":"Moisturizer (GL-P1)","k":"반제품","s":""},{"c":"MB01-0118","n":"Adhesive (AU-3)","k":"반제품","s":""},{"c":"MB01-0119","n":"Adhesive (AU-3H)","k":"반제품","s":""},{"c":"MB01-0120","n":"Adhesive (YU-4)","k":"반제품","s":""},{"c":"MB01-0121","n":"Adhesive (YU-4H)","k":"반제품","s":""},{"c":"MB01-0122","n":"Lash Lifting Perm (더빔 사입원료/시스테아민)","k":"반제품","s":""},{"c":"MB01-0123","n":"Adhesive (TC118)","k":"반제품","s":"1kg"},{"c":"MB01-0124","n":"Eyelash Fixer (H501-P (3000cps))","k":"반제품","s":""},{"c":"MB01-0125","n":"Eyelash Fixer (H501-H (3000cps))","k":"반제품","s":""},{"c":"MB01-0126","n":"Eyelash Fixer (H52P-R4)","k":"반제품","s":"kg"},{"c":"MB01-0127","n":"Lash Lifting Perm (TGC-1)","k":"반제품","s":"Kg"},{"c":"MB01-0128","n":"Lash Lifting Perm (CH-1)","k":"반제품","s":"kg"},{"c":"MB01-0129","n":"Adhesive (KCB-101)","k":"반제품","s":"kg"},{"c":"MB01-0130","n":"Adhesive (KCB-102)","k":"반제품","s":"kg"},{"c":"MB01-0131","n":"Adhesive (KCB-103)","k":"반제품","s":"kg"},{"c":"MB01-0132","n":"Adhesive (KCB-201)","k":"반제품","s":"kg"},{"c":"MB01-0133","n":"Adhesive (KCB-202)","k":"반제품","s":"kg"},{"c":"MB01-0134","n":"Adhesive (KCB-203)","k":"반제품","s":"kg"},{"c":"MB01-0135","n":"ET-BP03","k":"반제품","s":"kg"},{"c":"MF01-0000","n":"필리밀리 쌍커풀액 & 속눈썹접착제","k":"제품","s":"2ml"},{"c":"MF01-0001","n":"조은뷰티 인생글루","k":"제품","s":"5g"},{"c":"MF01-0002","n":"조은뷰티 래쉬큐어링","k":"제품","s":"10ml"},{"c":"MF01-0003","n":"조은뷰티 LP크림리무버","k":"제품","s":"15g"},{"c":"MF01-0004","n":"조은뷰티 끌올 속눈썹 펌크림 1제","k":"제품","s":"0.5g"},{"c":"MF01-0005","n":"조은뷰티 끌올 속눈썹 펌크림 2제","k":"제품","s":"0.5g"},{"c":"MF01-0006","n":"라몽 래쉬리부트 세럼","k":"제품","s":"5.5ml"},{"c":"MF01-0007","n":"라몽 래쉬샴푸","k":"제품","s":"100ml"},{"c":"MF01-0008","n":"라몽 드라잉부스터","k":"제품","s":"15ml"},{"c":"MF01-0009","n":"라몽 핀셋세척액","k":"제품","s":"20ml"},{"c":"MF01-0010","n":"라몽 래쉬리웨이브 펌1제","k":"제품","s":"0.8g"},{"c":"MF01-0011","n":"라몽 래쉬리웨이브 펌2제","k":"제품","s":"0.8g"},{"c":"MF01-0012","n":"라몽 래쉬리웨이브 펌3제","k":"제품","s":"0.8g"},{"c":"MF01-0013","n":"라몽 끌링밤","k":"제품","s":"5g"},{"c":"MF01-0014","n":"라몽 끌링롯드","k":"제품","s":"3pairs"},{"c":"MF01-0015","n":"라몽 데일리 속눈썹접착제 (백색)","k":"제품","s":"7g"},{"c":"MF01-0016","n":"라몽 데일리 속눈썹접착제 (블랙)","k":"제품","s":"7g"},{"c":"MF01-0017","n":"라몽 디터칭 크림리무버","k":"제품","s":"15g"},{"c":"MF01-0018","n":"라몽 PMMA프리 글루 (투명)","k":"제품","s":"5g"},{"c":"MF01-0019","n":"라몽 PMMA프리 글루 (블랙)","k":"제품","s":"5g"},{"c":"MF01-0020","n":"라몽OEM Soft Mousse 래쉬샴푸","k":"제품","s":"100ml"},{"c":"MF01-0021","n":"라몽OEM Flash Butter 펌왁스","k":"제품","s":"5g"},{"c":"MF01-0022","n":"라몽OEM 마이메구 펌1제","k":"제품","s":"0.5g"},{"c":"MF01-0023","n":"라몽OEM 마이메구 펌2제","k":"제품","s":"0.5g"},{"c":"MF01-0024","n":"라몽OEM 마이메구 펌3제","k":"제품","s":"0.5g"},{"c":"MF01-0026","n":"라몽OEM 30g진공용기 펌1제","k":"제품","s":"30g"},{"c":"MF01-0027","n":"라몽OEM 30g진공용기 펌2제 (과수)","k":"제품","s":"30g"},{"c":"MF01-0028","n":"라몽 점도조절제","k":"제품","s":"5g"},{"c":"MF01-0029","n":"아던샵 프리미엄글루","k":"제품","s":"5g"},{"c":"MF01-0030","n":"아던샵 크림리무버","k":"제품","s":"5g"},{"c":"MF01-0031","n":"미앤비즈 퀸즈글루","k":"제품","s":"5g"},{"c":"MF01-0032","n":"미앤비즈 프로페셔널글루","k":"제품","s":"5g"},{"c":"MF01-0033","n":"미앤비즈 크림리무버","k":"제품","s":"20g"},{"c":"MF01-0036","n":"미앤비즈 펌왁스","k":"제품","s":"5g"},{"c":"MF01-0037","n":"뷰티난다 셀럽글루","k":"제품","s":"5g"},{"c":"MF01-0038","n":"제이엘메디코스 마르샤글루","k":"제품","s":"5g"},{"c":"MF01-0039","n":"티엔비코스메틱 뷰티켓체리글루","k":"제품","s":"3g"},{"c":"MF01-0040","n":"AG 옵티모 프라임글루","k":"제품","s":"5g"},{"c":"MF01-0041","n":"AG 옵티모 클리어글루","k":"제품","s":"5g"},{"c":"MF01-0042","n":"AG 옵티모 루아글루","k":"제품","s":"5g"},{"c":"MF01-0043","n":"AG 릴리글루","k":"제품","s":"5g"},{"c":"MF01-0044","n":"AG 아쿠아겔리무버","k":"제품","s":"15ml"},{"c":"MF01-0045","n":"AG 래쉬밸런서 (30ml)","k":"제품","s":"30ml"},{"c":"MF01-0046","n":"AG 래쉬밸런서 (5ml)","k":"제품","s":"5ml"},{"c":"MF01-0047","n":"AG 슈퍼본더 (30ml)","k":"제품","s":"30ml"},{"c":"MF01-0048","n":"AG 슈퍼본더 (5ml)","k":"제품","s":"5ml"},{"c":"MF01-0049","n":"AG 래쉬샴푸플러스 (50ml)","k":"제품","s":"50ml"},{"c":"MF01-0050","n":"AG 래쉬샴푸플러스 (100ml)","k":"제품","s":"100ml"},{"c":"MF01-0051","n":"AG 일본 래쉬샴푸플러스 (50ml)","k":"제품","s":"50ml"},{"c":"MF01-0052","n":"AG 일본 래쉬샴푸플러스 (100ml)","k":"제품","s":"100ml"},{"c":"MF01-0053","n":"AG 실리콘패드","k":"제품","s":""},{"c":"MF01-0054","n":"AG 글루보관함","k":"제품","s":""},{"c":"MF01-0055","n":"AG 벨베티 리프팅크림 펌1제","k":"제품","s":"20g"},{"c":"MF01-0056","n":"AG 라스팅컬 셋팅크림 펌2제","k":"제품","s":"20g"},{"c":"MF01-0057","n":"AG 크림더리페어 펌3제","k":"제품","s":"20g"},{"c":"MF01-0058","n":"제이티글로벌 이글루 (블랙)","k":"제품","s":"5g"},{"c":"MF01-0059","n":"제이티글로벌 이글루 (투명)","k":"제품","s":"5g"},{"c":"MF01-0060","n":"제이티글로벌 래쉬움부스터","k":"제품","s":"50ml"},{"c":"MF01-0061","n":"제이티글로벌 래쉬움리페어","k":"제품","s":"0.5g"},{"c":"MF01-0062","n":"마루뷰티 사라블랙에디션글루","k":"제품","s":"5g"},{"c":"MF01-0063","n":"마루뷰티 뮤즈글루","k":"제품","s":"5g"},{"c":"MF01-0064","n":"마루뷰티 뮤즈큐어링","k":"제품","s":"15ml"},{"c":"MF01-0065","n":"마루뷰티 에루샤 펌1제","k":"제품","s":"0.5g"},{"c":"MF01-0066","n":"마루뷰티 에루샤 펌2제","k":"제품","s":"0.5g"},{"c":"MF01-0067","n":"마루뷰티 에루샤 펌3제","k":"제품","s":"0.5g"},{"c":"MF01-0068","n":"뷰티체인지 씨엘플러스글루","k":"제품","s":"5g"},{"c":"MF01-0069","n":"센트홀릭 아스터글루 1초","k":"제품","s":"10g"},{"c":"MF01-0070","n":"센트홀릭 아스터글루 2초","k":"제품","s":"10g"},{"c":"MF01-0071","n":"센트홀릭 스노우 펌킹밤","k":"제품","s":"10g"},{"c":"MF01-0072","n":"센트홀릭 달팽이 펌1제","k":"제품","s":"0.5g"},{"c":"MF01-0073","n":"센트홀릭 달팽이 펌2제","k":"제품","s":"0.5g"},{"c":"MF01-0074","n":"글램래쉬 1초 블랙글루","k":"제품","s":"5g"},{"c":"MF01-0075","n":"켄지메디코스 빼쎄프로픽스글루","k":"제품","s":"5g"},{"c":"MF01-0076","n":"래쉬티비 102탑글루","k":"제품","s":"5g"},{"c":"MF01-0077","n":"래쉬티비 아이돌 펌1제","k":"제품","s":"0.5g"},{"c":"MF01-0078","n":"래쉬티비 아이돌 펌2제","k":"제품","s":"0.5g"},{"c":"MF01-0079","n":"래쉬티비 아이돌래쉬글루 클리어","k":"제품","s":"7g"},{"c":"MF01-0080","n":"래쉬티비 아이돌래쉬글루 블랙","k":"제품","s":"7g"},{"c":"MF01-0081","n":"럽스위치 뉴콜라글루","k":"제품","s":"3g"},{"c":"MF01-0082","n":"럽스위치 뉴프레쉬글루","k":"제품","s":"3g"},{"c":"MF01-0083","n":"럽스위치 뉴사이다글루","k":"제품","s":"5g"},{"c":"MF01-0084","n":"럽스위치 뉴시그니처글루","k":"제품","s":"5g"},{"c":"MF01-0085","n":"럽스위치 뉴하이엔드글루","k":"제품","s":"5g"},{"c":"MF01-0086","n":"신디뷰티 펌글루 (PN01)","k":"제품","s":"5g"},{"c":"MF01-0087","n":"신디뷰티 미브린프로엔글루","k":"제품","s":"5g"},{"c":"MF01-0088","n":"신디뷰티 미브린프로엔씰러","k":"제품","s":"5g"},{"c":"MF01-0089","n":"제이메디팜 루엔퀵글루","k":"제품","s":"5g"},{"c":"MF01-0090","n":"제이메디팜 루엔숏글루","k":"제품","s":"5g"},{"c":"MF01-0091","n":"제이메디팜 루엔마인드크림리무버","k":"제품","s":"15g"},{"c":"MF01-0092","n":"뽀블링 래쉬크루코코울트라글루","k":"제품","s":"5g"},{"c":"MF01-0093","n":"뽀블링 코코리턴울트라리무버","k":"제품","s":"15g"},{"c":"MF01-0094","n":"JLC KC136","k":"제품","s":"1kg"},{"c":"MF01-0095","n":"JCL KC136-J","k":"제품","s":"1kg"},{"c":"MF01-0096","n":"PBS 래쉬홀릭 크림리무버","k":"제품","s":"20g"},{"c":"MF01-0097","n":"PBS 래쉬홀릭 래쉬샴푸","k":"제품","s":"160ml"},{"c":"MF01-0098","n":"에버바이오 꽁글루 (1초)","k":"제품","s":"5g"},{"c":"MF01-0099","n":"에버바이오 꽁글루 (3초)","k":"제품","s":"5g"},{"c":"MF01-0100","n":"에버바이오 꽁퀵후처리제","k":"제품","s":"3g"},{"c":"MF01-0101","n":"아이하라 아이하라글루","k":"제품","s":"1g"},{"c":"MF01-0102","n":"미라클뷰티인터 화연디아벨라글루","k":"제품","s":"5g"},{"c":"MF01-0103","n":"미라클뷰티인터 화연크림리무버","k":"제품","s":"15g"},{"c":"MF01-0104","n":"인터워크코리아 유누꼬글루 (클리어)","k":"제품","s":"3ml"},{"c":"MF01-0105","n":"인터워크코리아 유누꼬글루 (블랙)","k":"제품","s":"3ml"},{"c":"MF01-0106","n":"인터워크코리아 프로실러","k":"제품","s":"4ml"},{"c":"MF01-0107","n":"루나뷰티 펌1제","k":"제품","s":"0.8g"},{"c":"MF01-0108","n":"루나뷰티 펌2제","k":"제품","s":"0.8g"},{"c":"MF01-0109","n":"루나뷰티 펌3제","k":"제품","s":"0.8g"},{"c":"MF01-0110","n":"뷰티인마인 뷰티인글루","k":"제품","s":"5g"},{"c":"MF01-0111","n":"뷰티인마인 뷰티인리무버","k":"제품","s":"5g"},{"c":"MF01-0112","n":"엘루스고센 세인트글루","k":"제품","s":"5g"},{"c":"MF01-0113","n":"엘루스고센 루이드글루","k":"제품","s":"5g"},{"c":"MF01-0114","n":"엘루스고센 곰돌이글루","k":"제품","s":"5g"},{"c":"MF01-0115","n":"엘루스고센 리츠글루","k":"제품","s":"5g"},{"c":"MF01-0116","n":"엘루스고센 브리제글루","k":"제품","s":"5g"},{"c":"MF01-0117","n":"엘루스고센 미끄럼방지액","k":"제품","s":"30ml"},{"c":"MF01-0118","n":"엘루스고센 실러","k":"제품","s":"5ml"},{"c":"MF01-0119","n":"뷰티인글로벌 트리플노글루","k":"제품","s":"5g"},{"c":"MF01-0120","n":"뷰티인글로벌 퓨어러빙글루","k":"제품","s":"5g"},{"c":"MF01-0121","n":"뷰티인글로벌 젠틀홀드글루","k":"제품","s":"5g"},{"c":"MF01-0123","n":"뷰티인글로벌 pH부스터","k":"제품","s":"10ml"},{"c":"MF01-0124","n":"뷰티인글로벌 슈퍼본더","k":"제품","s":"10ml"},{"c":"MF01-0125","n":"뷰티인글로벌 제로트레이스리무버","k":"제품","s":"15g"},{"c":"MF01-0126","n":"뷰티인글로벌 순수리무버","k":"제품","s":"15g"},{"c":"MF01-0127","n":"뷰티인글로벌 래쉬듀픽서","k":"제품","s":"5ml"},{"c":"MF01-0128","n":"뷰티인글로벌 래쉬쉴드픽서","k":"제품","s":"5ml"},{"c":"MF01-0129","n":"뷰티인글로벌 래쉬엔브로우 펌1제","k":"제품","s":"0.5g"},{"c":"MF01-0130","n":"뷰티인글로벌 래쉬엔브로우 펌2제","k":"제품","s":"0.5g"},{"c":"MF01-0131","n":"뷰티인글로벌 래쉬엔브로우 펌3제","k":"제품","s":"0.5g"},{"c":"MF01-0132","n":"뷰티인글로벌 래쉬샴푸","k":"제품","s":"100ml"},{"c":"MF01-0136","n":"젬소 다비제이글루","k":"제품","s":"5g"},{"c":"MF01-0137","n":"젬소 제부미리무버 (셀프형) / 보라","k":"제품","s":"5g"},{"c":"MF01-0138","n":"젬소 다비제이리무버","k":"제품","s":"5g"},{"c":"MF01-0139","n":"젬소 제부미리무버","k":"제품","s":"5g"},{"c":"MF01-0140","n":"래쉬스토리 베스트글루","k":"제품","s":"5g"},{"c":"MF01-0141","n":"래쉬스토리 베스트큐어링","k":"제품","s":"10ml"},{"c":"MF01-0142","n":"스타속눈썹샵 아나글루","k":"제품","s":"5g"},{"c":"MF01-0143","n":"뷰티하이클래스 7주글루 (1초)","k":"제품","s":"5g"},{"c":"MF01-0144","n":"뷰티하이클래스 7주글루 (2초)","k":"제품","s":"5g"},{"c":"MF01-0145","n":"뷰티하이클래스 7주글루 (투명)","k":"제품","s":"5g"},{"c":"MF01-0146","n":"제이시스 럭스뮤즈글루","k":"제품","s":"5g"},{"c":"MF01-0147","n":"제이시스OEM 그리타글루","k":"제품","s":"5g"},{"c":"MF01-0148","n":"MACY LAMACY펌세트 (튜브)","k":"제품","s":""},{"c":"MF01-0149","n":"MACY LAMACY펌세트 (파우치)","k":"제품","s":""},{"c":"MF01-0150","n":"MACY MACY펌세트 (튜브)","k":"제품","s":""},{"c":"MF01-0151","n":"MACY MACY펌세트 (파우치)","k":"제품","s":""},{"c":"MF01-0152","n":"MACY MOMI펌세트 (튜브)","k":"제품","s":""},{"c":"MF01-0153","n":"MACY MOMI펌세트 (파우치)","k":"제품","s":""},{"c":"MF01-0154","n":"MACY LAMACY글루세트","k":"제품","s":""},{"c":"MF01-0159","n":"Expancel 053DU40","k":"상품","s":"kg"},{"c":"MF01-0187","n":"더빔 래쉬픽서 (블랙)","k":"제품","s":"10ml"},{"c":"MF01-0188","n":"누누샵 그릭요거밤","k":"제품","s":"10g"},{"c":"MF01-0189","n":"서울래쉬스튜디오 R145","k":"제품","s":"15g"},{"c":"MF01-0190","n":"서울래쉬스튜디오 K25","k":"제품","s":"10g"},{"c":"MF01-0191","n":"서울래쉬스튜디오 T08","k":"제품","s":"20g"},{"c":"MF01-0192","n":"서울래쉬스튜디오 TS01","k":"제품","s":"10g"},{"c":"MF01-0193","n":"서울래쉬스튜디오 AT26","k":"제품","s":"10g"},{"c":"MF01-0194","n":"서울래쉬스튜디오 AC95","k":"제품","s":"10g"},{"c":"MF01-0195","n":"아오이로 EX울트라글루","k":"제품","s":"5g"},{"c":"MF01-0196","n":"아오이로 EX슈퍼글루","k":"제품","s":"5g"},{"c":"MF01-0197","n":"아오이로 EX세이프티글루","k":"제품","s":"5g"},{"c":"MF01-0198","n":"아오이로 펌글루","k":"제품","s":"5g"},{"c":"MF01-0199","n":"아오이로 펌왁스","k":"제품","s":"5g"},{"c":"MF01-0200","n":"라라래쉬 FAST글루","k":"제품","s":"5g"},{"c":"MF01-0201","n":"라라래쉬 SLOW글루","k":"제품","s":"5g"},{"c":"MF01-0202","n":"라라래쉬 래쉬샴푸","k":"제품","s":"50ml"},{"c":"MF01-0203","n":"라라래쉬 전처리제","k":"제품","s":"15g"},{"c":"MF01-0204","n":"라라래쉬 슈퍼본더","k":"제품","s":"15g"},{"c":"MF01-0205","n":"라라래쉬 펌글루","k":"제품","s":"4.5g"},{"c":"MF01-0206","n":"라라래쉬 펌왁스","k":"제품","s":"10g"},{"c":"MF01-0207","n":"PBS 모아글루","k":"제품","s":"5g"},{"c":"MF01-0208","n":"AG&BEAUTY 진공보관함","k":"제품","s":""},{"c":"MF01-0209","n":"글램래쉬 3초 블랙글루","k":"제품","s":"5g"},{"c":"MF01-0210","n":"미앤비즈 전처리제","k":"제품","s":"50ml"},{"c":"MF01-0211","n":"미앤비즈 겔리무버","k":"제품","s":"2g"},{"c":"MF01-0212","n":"미앤비즈 QUEENS 펌제 #1","k":"제품","s":"0.5g"},{"c":"MF01-0213","n":"미앤비즈 QUEENS 펌제 #2","k":"제품","s":"0.5g"},{"c":"MF01-0214","n":"다이아래쉬 펌1제","k":"제품","s":"0.5g"},{"c":"MF01-0215","n":"다이아래쉬 펌2제","k":"제품","s":"0.5g"},{"c":"MF01-0216","n":"프리티제니 부일펌 1제","k":"제품","s":"0.8g"},{"c":"MF01-0217","n":"프리티제니 부일펌 2제","k":"제품","s":"0.8g"},{"c":"MF01-0218","n":"아사달뷰티 블랙프로글루","k":"제품","s":"5g"},{"c":"MF01-0219","n":"프리티제니 아이래쉬펌1제 (중국OEM)","k":"제품","s":"0.8g"},{"c":"MF01-0220","n":"프리티제니 아이래쉬펌2제 (중국OEM)","k":"제품","s":"0.8g"},{"c":"MF01-0221","n":"라몽OEM 마이메구 펌1제","k":"제품","s":"0.8g"},{"c":"MF01-0222","n":"라몽OEM 마이메구 펌2제","k":"제품","s":"0.8g"},{"c":"MF01-0223","n":"라몽OEM 마이메구 펌3제","k":"제품","s":"0.8g"},{"c":"MF01-0224","n":"더빔 래쉬픽서 (블랙)","k":"제품","s":"5ml"},{"c":"MF01-0225","n":"센트홀릭 래쉬버터 미니 (투명)","k":"제품","s":"2ml"},{"c":"MF01-0226","n":"센트홀릭 래쉬버터 듀얼 (투명+블랙)","k":"제품","s":"5ml+5ml"},{"c":"MF01-0227","n":"센트홀릭 래쉬버터 듀얼 (투명+투명)","k":"제품","s":"5ml+5ml"},{"c":"MF01-0228","n":"MACY 브로우스타일링","k":"제품","s":"10ml"},{"c":"MF01-0229","n":"MACY 글루 (TH130-A)","k":"제품","s":"5g"},{"c":"MF01-0230","n":"MACY 래쉬샴푸 (장미향)","k":"제품","s":"50ml"},{"c":"MF01-0231","n":"제이엘코스메틱 젠틀래쉬샴푸","k":"제품","s":"50ml"},{"c":"MF01-0232","n":"알리바바) V801 (FINNLASH KICKIT)","k":"제품","s":"5g"},{"c":"MF01-0233","n":"프리티제니 펌왁스(투명)","k":"제품","s":"5g"},{"c":"MF01-0234","n":"프리티제니 펌왁스(백색)","k":"제품","s":"5g"},{"c":"MF01-0235","n":"MACY 글루OEM (CM81-R)","k":"제품","s":"3g"},{"c":"MF01-0245","n":"알리바바) V801","k":"제품","s":"5g"},{"c":"MF01-0246","n":"알리바바) V802 [5g]","k":"제품","s":""},{"c":"MF01-0256","n":"보라메디코스 컬-액션밤","k":"제품","s":"15g"},{"c":"MF01-0257","n":"알리바바) MBNTL CLASSIC GLUE (0.5S<)","k":"제품","s":"5g"},{"c":"MF01-0258","n":"알리바바) MBNTL CLASSIC GLUE (0.5-1S)","k":"제품","s":"5g"},{"c":"MF01-0259","n":"알리바바) MBNTL CLASSIC GLUE (1-2S)","k":"제품","s":"5g"},{"c":"MF01-0260","n":"알리바바) MBNTL CLASSIC GLUE (2-3S)","k":"제품","s":"5g"},{"c":"MF01-0261","n":"알리바바) MBNTL PRO GLUE (0.5S<)","k":"제품","s":"5g"},{"c":"MF01-0262","n":"알리바바) MBNTL PRO GLUE (0.5-1S)","k":"제품","s":"5g"},{"c":"MF01-0263","n":"알리바바) MBNTL PRO GLUE (1-2S)","k":"제품","s":"5g"},{"c":"MF01-0264","n":"알리바바) MBNTL PRO GLUE (2-3S)","k":"제품","s":"5g"},{"c":"MF01-0310","n":"뷰티인글로벌 래쉬&브로우 펌1제 0.8g","k":"제품","s":"0.8g"},{"c":"MF01-0311","n":"뷰티인글로벌 래쉬&브로우 펌2제 0.8g","k":"제품","s":"0.8g"},{"c":"MF01-0312","n":"뷰티인글로벌 래쉬&브로우 펌3제 0.8g","k":"제품","s":"0.8g"},{"c":"MF01-0313","n":"더빔 펌1제 OEM (EBL/내용물사입)","k":"제품","s":"1g"},{"c":"MF01-0314","n":"더빔 펌2제 OEM (EBL)","k":"제품","s":"1g"},{"c":"MF01-0315","n":"더빔 펌3제 OEM (EBL)","k":"제품","s":"15g"},{"c":"MF01-0316","n":"더빔 펌왁스 OEM (EBL)","k":"제품","s":"10g"},{"c":"MF01-0317","n":"더빔 펌1제 (내용물사입)","k":"제품","s":"0.5g"},{"c":"MF01-0318","n":"더빔 펌2제","k":"제품","s":"0.5g"},{"c":"MF01-0319","n":"더빔 펌왁스","k":"제품","s":"10g"},{"c":"MF01-0320","n":"MACY 글루OEM (TH-A)","k":"제품","s":"3g"},{"c":"MF01-0321","n":"MACY 전처리제OEM (AT26)","k":"제품","s":"15g"},{"c":"MF01-0322","n":"라몽OEM 5g진공용기 펌1제","k":"제품","s":"5g"},{"c":"MF01-0323","n":"라몽OEM 5g진공용기 펌2제 (과수)","k":"제품","s":"5g"},{"c":"MF01-0324","n":"라몽OEM 5g진공용기 펌3제","k":"제품","s":"5g"},{"c":"MF01-0325","n":"라몽 OEM V801 5g","k":"제품","s":""},{"c":"MF01-0326","n":"MACY GBL겔리무버OEM (R145)","k":"제품","s":"15g"},{"c":"MF01-0327","n":"인터워크코리아 유누꼬 속눈썹접착제 (클리어)","k":"제품","s":"1g"},{"c":"MF01-0328","n":"인터워크코리아 유누꼬 속눈썹접착제 (클리어)","k":"제품","s":"4g"},{"c":"MF01-0329","n":"로마니 리무버","k":"제품","s":"5g"},{"c":"MF01-0330","n":"로마니 아이래쉬글루","k":"제품","s":""},{"c":"MF01-0331","n":"MACY 글루OEM (TH-B)","k":"제품","s":"5g"},{"c":"MF01-0332","n":"MACY P/C크림리무버OEM (T08)","k":"제품","s":"15g"},{"c":"MF01-0333","n":"MACY 슈퍼본더OEM (AC95)","k":"제품","s":"15g"},{"c":"MF01-0334","n":"뷰티홀릭 RAPIDE 프리미엄글루","k":"제품","s":"5g"},{"c":"MF01-0335","n":"뷰티홀릭 RAPIDE 플러스글루","k":"제품","s":"5g"},{"c":"MF01-0336","n":"MACY 글루OEM (TH-A)","k":"제품","s":"5g"},{"c":"MF01-0337","n":"엘루스고센 크림리무버","k":"제품","s":"5g"},{"c":"MF01-0338","n":"라몽 ZOOM 펌1제","k":"제품","s":"0.8g"},{"c":"MF01-0339","n":"라몽 ZOOM 펌2제","k":"제품","s":"0.8g"},{"c":"MF01-0340","n":"엘루스고센 슈퍼본더","k":"제품","s":"5g"},{"c":"MF01-0341","n":"조은뷰티 글루OEM (V801)","k":"제품","s":"5g"},{"c":"MF01-0342","n":"라몽OEM 래쉬샴푸(백색용기)","k":"제품","s":"100ml"},{"c":"MF01-0343","n":"뷰티명가 퓨리에글루","k":"제품","s":"5g"},{"c":"MF01-0344","n":"라몽OEM 래쉬샴푸(투명용기)","k":"제품","s":"100ml"},{"c":"MF01-0345","n":"경원 글루OEM (V801)","k":"제품","s":"5g"},{"c":"MF01-0346","n":"경원 글루OEM (V801)","k":"제품","s":"10g"},{"c":"MF01-0347","n":"경원 글루OEM (V803)","k":"제품","s":"5g"},{"c":"MF01-0348","n":"경원 글루OEM (V803)","k":"제품","s":"10g"},{"c":"MF01-0349","n":"MACY 래쉬픽서OEM (H501-P)","k":"제품","s":"5ml"},{"c":"MF01-0350","n":"MACY 래쉬픽서OEM (H501-H)","k":"제품","s":"5ml"},{"c":"MF01-0351","n":"MACY 래쉬세럼OEM (H501-R3)","k":"제품","s":"5ml"},{"c":"MF01-0352","n":"MACY 성장픽서OEM (H501-P-MACY)","k":"제품","s":"5ml"},{"c":"MF01-0353","n":"MACY 성장픽서OEM (H501-H-MACY)","k":"제품","s":"5ml"},{"c":"MF01-0354","n":"조은뷰티 결정리픽서 (투명)","k":"제품","s":"3ml"},{"c":"MF01-0355","n":"젬소 제부미글루 (1초) / 검정","k":"제품","s":"5g"},{"c":"MF01-0356","n":"MACY OEM 전처리제 AT26","k":"제품","s":"20ml"},{"c":"MF01-0357","n":"MACY OEM CM82","k":"제품","s":"5g"},{"c":"MF01-0358","n":"MACY OEM CM84","k":"제품","s":"5g"},{"c":"MF01-0359","n":"엘씨나인 노먼드 연장 1초글루","k":"제품","s":"5g"},{"c":"MF01-0360","n":"엘씨나인 아이래쉬 펌 솔루션 펌제 STEP1 LIFT","k":"제품","s":"0.5g"},{"c":"MF01-0361","n":"엘씨나인 노몬드 아이래쉬 펌 솔루션 펌제 STEP2 FIX","k":"제품","s":"0.5g"},{"c":"MF01-0362","n":"경원 리무버OEM (TS01)","k":"제품","s":"15g"},{"c":"MF01-0363","n":"MACY 코팅제OEM (CT66)","k":"제품","s":"10g"},{"c":"MF01-0364","n":"엘루스고센 COOKIE글루 (저점도)","k":"제품","s":"5g"},{"c":"MF01-0365","n":"엘루스고센 COOKIE글루 (고점도)","k":"제품","s":"5g"},{"c":"MF01-0366","n":"엘루스고센 LEVER글루 (저점도)","k":"제품","s":"5g"},{"c":"MF01-0367","n":"엘루스고센 LEVER글루 (고점도)","k":"제품","s":"5g"},{"c":"MF01-0368","n":"엘루스고센 MOMO글루 (저점도)","k":"제품","s":"5g"},{"c":"MF01-0369","n":"엘루스고센 MOMO글루 (고점도)","k":"제품","s":"5g"},{"c":"MM01-0001","n":"HAIR CARE E34081 (고려향료) - 장미향_MACY","k":"원재료","s":"1kg"},{"c":"MM01-0002","n":"Make up V706-D","k":"상품","s":"ea"},{"c":"MM01-0003","n":"Solution(세척제) V901-Q","k":"상품","s":"V901-Q"},{"c":"MP01-0001","n":"백색둥근용기mini 3g (DQMC-W3)","k":"부재료","s":"1ea"},{"c":"MP01-0002","n":"검정둥근용기mini 3g (DQMC-B3)","k":"부재료","s":"1ea"},{"c":"MP01-0003","n":"백색둥근용기 3g (DQF-W3)","k":"부재료","s":"1ea"},{"c":"MP01-0004","n":"검정둥근용기 3g (DQF-B3)","k":"부재료","s":"1ea"},{"c":"MP01-0005","n":"백색타원용기 5g (DQF-W5)","k":"부재료","s":"1ea"},{"c":"MP01-0006","n":"검정타원용기 5g (DQF-B5)","k":"부재료","s":"1ea"},{"c":"MP01-0007","n":"백색타원용기 10g (DQF-W10)","k":"부재료","s":"1ea"},{"c":"MP01-0008","n":"검정타원용기 10g (DQF-B10)","k":"부재료","s":"1ea"},{"c":"MP01-0009","n":"백색타원용기 15g (DQF-W15)","k":"부재료","s":"1ea"},{"c":"MP01-0010","n":"검정타원용기 15g (DQF-B15)","k":"부재료","s":"1ea"},{"c":"MP01-0011","n":"백색사각용기 5g (DQS-W5)","k":"부재료","s":"1ea"},{"c":"MP01-0012","n":"검정사각용기 5g (DQS-B5)","k":"부재료","s":"1ea"},{"c":"MP01-0013","n":"백색원형용기 5g (DQO-W5)","k":"부재료","s":"1ea"},{"c":"MP01-0014","n":"검정원형용기 5g (DQO-B5)","k":"부재료","s":"1ea"},{"c":"MP01-0015","n":"백색1각뚜껑 (DQ1W)","k":"부재료","s":"1ea"},{"c":"MP01-0016","n":"회색1각뚜껑 (DQ1Gr)","k":"부재료","s":"1ea"},{"c":"MP01-0017","n":"분홍1각뚜껑 (DQ1Pi)","k":"부재료","s":"1ea"},{"c":"MP01-0018","n":"파란1각뚜껑 (DQ1Bu)","k":"부재료","s":"1ea"},{"c":"MP01-0019","n":"빨간1각뚜껑 (DQ1R)","k":"부재료","s":"1ea"},{"c":"MP01-0020","n":"보라1각뚜껑 (DQ1P)","k":"부재료","s":"1ea"},{"c":"MP01-0021","n":"초록1각뚜껑 (DQ1G)","k":"부재료","s":"1ea"},{"c":"MP01-0022","n":"검정1각뚜껑 (DQ1B)","k":"부재료","s":"1ea"},{"c":"MP01-0023","n":"백색6각뚜껑 (DQ6W)","k":"부재료","s":"1ea"},{"c":"MP01-0024","n":"회색6각뚜껑 (DQ6Gr)","k":"부재료","s":"1ea"},{"c":"MP01-0025","n":"분홍6각뚜껑 (DQ6Pi)","k":"부재료","s":"1ea"},{"c":"MP01-0026","n":"파란6각뚜껑 (DQ6Bu)","k":"부재료","s":"1ea"},{"c":"MP01-0027","n":"빨간6각뚜껑 (DQ6R)","k":"부재료","s":"1ea"},{"c":"MP01-0028","n":"보라6각뚜껑 (DQ6P)","k":"부재료","s":"1ea"},{"c":"MP01-0029","n":"초록6각뚜껑 (DQ6G)","k":"부재료","s":"1ea"},{"c":"MP01-0030","n":"검정6각뚜껑 (DQ6B)","k":"부재료","s":"1ea"},{"c":"MP01-0031","n":"파란유광금속뚜껑 (DQAC2-Bu)","k":"부재료","s":"1ea"},{"c":"MP01-0032","n":"보라유광금속뚜껑 (DQAC2-P)","k":"부재료","s":"1ea"},{"c":"MP01-0033","n":"금색유광금속뚜껑 (DQAC2-Go)","k":"부재료","s":"1ea"},{"c":"MP01-0034","n":"분홍유광금속뚜껑 (DQAC2-Pi)","k":"부재료","s":"1ea"},{"c":"MP01-0035","n":"동색유광금속뚜껑 (DQAC2-Bz)","k":"부재료","s":"1ea"},{"c":"MP01-0036","n":"빨간유광금속뚜껑 (DQAC2-R)","k":"부재료","s":"1ea"},{"c":"MP01-0037","n":"검정유광금속뚜껑 (DQAC2-B)","k":"부재료","s":"1ea"},{"c":"MP01-0038","n":"은색유광금속뚜껑 (DQAC2-Si)","k":"부재료","s":"1ea"},{"c":"MP01-0039","n":"은색반무광금속뚜껑 (DQAC2-Msi)","k":"부재료","s":"1ea"},{"c":"MP01-0040","n":"파란반무광금속뚜껑 (DQAC2-Mbu)","k":"부재료","s":"1ea"},{"c":"MP01-0041","n":"금색반무광금속뚜껑 (DQAC2-Mgo)","k":"부재료","s":"1ea"},{"c":"MP01-0042","n":"분홍반무광금속뚜껑 (DQAC2-Mro)","k":"부재료","s":"1ea"},{"c":"MP01-0043","n":"초록반무광금속뚜껑 (DQAC2-MG)","k":"부재료","s":"1ea"},{"c":"MP01-0044","n":"검정무광금속뚜껑 (DQS2-B)","k":"부재료","s":"1ea"},{"c":"MP01-0045","n":"금색무광금속뚜껑 (DQS2-RGo)","k":"부재료","s":"1ea"},{"c":"MP01-0046","n":"분홍무광금속뚜껑 (DQS2-Cpi)","k":"부재료","s":"1ea"},{"c":"MP01-0047","n":"은색무광금속뚜껑 (DQS2-Si)","k":"부재료","s":"1ea"},{"c":"MP01-0048","n":"회색무광금속뚜껑 (DQS2-LC)","k":"부재료","s":"1ea"},{"c":"MP01-0049","n":"민트무광금속뚜껑 (DQS2-PC)","k":"부재료","s":"1ea"},{"c":"MP01-0050","n":"파란무광금속뚜껑 (DQS2-SC)","k":"부재료","s":"1ea"},{"c":"MP01-0052","n":"분홍무광금속뚜껑 (은줄X) (DQS0-Pi-KOR)","k":"부재료","s":"1ea"},{"c":"MP01-0053","n":"파란무광금속뚜껑 (은줄X) (DQS0-Bu-KOR)","k":"부재료","s":"1ea"},{"c":"MP01-0054","n":"초록무광금속뚜껑 (은줄X) (DQS0-G-KOR)","k":"부재료","s":"1ea"},{"c":"MP01-0055","n":"금색격자무늬유광금속뚜껑 (DQD-Go)","k":"부재료","s":"1ea"},{"c":"MP01-0056","n":"은색격자무늬유광금속뚜껑 (DQD-Si)","k":"부재료","s":"1ea"},{"c":"MP01-0057","n":"검정격자무늬유광금속뚜껑 (DQD-B)","k":"부재료","s":"1ea"},{"c":"MP01-0058","n":"갈색사선무늬반무광금속뚜껑 (DQE-CB)","k":"부재료","s":"1ea"},{"c":"MP01-0059","n":"파란사선무늬반무광금속뚜껑 (DQE-Mbu)","k":"부재료","s":"1ea"},{"c":"MP01-0060","n":"금색줄무늬유광금속뚜껑 (DQTA-Go)","k":"부재료","s":"1ea"},{"c":"MP01-0061","n":"은색줄무늬유광금속뚜껑 (DQTA-Si)","k":"부재료","s":"1ea"},{"c":"MP01-0062","n":"뚫린노즐 (DQT)","k":"부재료","s":"1ea"},{"c":"MP01-0063","n":"막힌노즐 (DQB)","k":"부재료","s":"1ea"},{"c":"MP01-0064","n":"금색사각용기 (YFK1HJ)","k":"부재료","s":""},{"c":"MP01-0065","n":"금색사각용기 노즐 (YFYT)","k":"부재료","s":""},{"c":"MP01-0066","n":"금색사각용기 뚜껑 (YF금색뚜껑)","k":"부재료","s":""},{"c":"MP01-0067","n":"압정","k":"부재료","s":"1ea"},{"c":"MP01-0068","n":"제습제","k":"부재료","s":"1ea"},{"c":"MP01-0069","n":"백색뚜껑원형용기 1g (CD-T(W)2)","k":"부재료","s":"1ea"},{"c":"MP01-0070","n":"분홍뚜껑원형용기 1g (CD-T(Pi)1)","k":"부재료","s":"1ea"},{"c":"MP01-0071","n":"검정뚜껑원형용기 1g (CD-T(B)1)","k":"부재료","s":"1ea"},{"c":"MP01-0072","n":"백색뚜껑사각용기 1g (CD1-T(W)1)","k":"부재료","s":"1ea"},{"c":"MP01-0073","n":"백색뚜껑막힌용기 1g (YF-T1)","k":"부재료","s":"1ea"},{"c":"MP01-0074","n":"백색뚜껑막힌용기 2g (YF-T2)","k":"부재료","s":"1ea"},{"c":"MP01-0075","n":"13파이튜브 1-5g (13H1)","k":"부재료","s":"1ea"},{"c":"MP01-0076","n":"16파이튜브 6-10g (16H1)","k":"부재료","s":"1ea"},{"c":"MP01-0077","n":"19파이튜브 15-20g (19H3)","k":"부재료","s":"1ea"},{"c":"MP01-0078","n":"검정뚜껑+검정용기+미세브러쉬 4g (S1B4-JD)","k":"부재료","s":"1ea"},{"c":"MP01-0079","n":"검정뚜껑+투명용기+미세브러쉬 4g (S2T(B)4-JD)","k":"부재료","s":"1ea"},{"c":"MP01-0080","n":"백색뚜껑+백색용기+미세브러쉬 4g (S1W4)","k":"부재료","s":"1ea"},{"c":"MP01-0081","n":"검정뚜껑+투명용기+붓브러쉬 5g (QY016-S1)","k":"부재료","s":"1ea"},{"c":"MP01-0082","n":"은색뚜껑+투명용기+붓브러쉬 5g (QY016-S2)","k":"부재료","s":"1ea"},{"c":"MP01-0083","n":"백색뚜껑+투명용기+붓브러쉬 5g (S2T(W)-E5)","k":"부재료","s":"1ea"},{"c":"MP01-0084","n":"분홍뚜껑+반투명용기+붓브러쉬 5g (S1Pi-E5)","k":"부재료","s":"1ea"},{"c":"MP01-0085","n":"검정뚜껑+검정용기+솜브러쉬 5g (S1B-BH5-Q)","k":"부재료","s":"1ea"},{"c":"MP01-0086","n":"검정뚜껑+검정용기+미세브러쉬 5g (S1B-BS5-Q)","k":"부재료","s":"1ea"},{"c":"MP01-0087","n":"검정뚜껑+검정용기+사출브러쉬 5g (S1B-BS5-Q1)","k":"부재료","s":"1ea"},{"c":"MP01-0088","n":"백색뚜껑+백색용기+솜브러쉬 5g (S1W-H5-Q)","k":"부재료","s":"1ea"},{"c":"MP01-0089","n":"백색뚜껑+백색용기+사출브러쉬 5g (S1W-BT5-Q)","k":"부재료","s":"1ea"},{"c":"MP01-0090","n":"백색뚜껑+백색용기+붓브러쉬 5g (S1W-E5-Q)","k":"부재료","s":"1ea"},{"c":"MP01-0091","n":"분홍뚜껑+분홍용기+솜브러쉬 5g (S1Pi-BH5-Q)","k":"부재료","s":"1ea"},{"c":"MP01-0092","n":"분홍뚜껑+분홍용기+사출브러쉬 5g (S1Pi-BS5-Q)","k":"부재료","s":"1ea"},{"c":"MP01-0093","n":"분홍뚜껑+분홍용기+붓브러쉬 5g (S1Pi-BE5-Q)","k":"부재료","s":"1ea"},{"c":"MP01-0094","n":"검정듀얼용기+미세브러쉬 4g+4g (D1B-SW4)","k":"부재료","s":"1ea"},{"c":"MP01-0095","n":"검정듀얼용기+C브러쉬+미세브러쉬 4g+4g (D1B-C-SW4)","k":"부재료","s":"1ea"},{"c":"MP01-0096","n":"검정듀얼용기+미세브러쉬+솜브러쉬 4g+4g (D1B-SW-H4)","k":"부재료","s":"1ea"},{"c":"MP01-0097","n":"검정듀얼용기+C브러쉬+솜브러쉬 4g+4g (D1B-C-H4)","k":"부재료","s":"1ea"},{"c":"MP01-0098","n":"분홍듀얼용기+미세브러쉬 4g+4g (D1Pi-SW4)","k":"부재료","s":"1ea"},{"c":"MP01-0099","n":"분홍듀얼용기+C브러쉬+미세브러쉬 4g+4g (D1Pi-C-SW4)","k":"부재료","s":"1ea"},{"c":"MP01-0100","n":"분홍듀얼용기+미세브러쉬+솜브러쉬 4g+4g (D1Pi-SW-H4)","k":"부재료","s":"1ea"},{"c":"MP01-0101","n":"분홍듀얼용기+C브러쉬+솜브러쉬 4g+4g (D1Pi-CW-H4)","k":"부재료","s":"1ea"},{"c":"MP01-0102","n":"투명항아리용기 5g (MT5)","k":"부재료","s":"1ea"},{"c":"MP01-0103","n":"투명항아리용기 10g (MT10)","k":"부재료","s":"1ea"},{"c":"MP01-0104","n":"분홍항아리용기 5g (MTPi5)","k":"부재료","s":"1ea"},{"c":"MP01-0105","n":"백색크림용기 5g (RW5)","k":"부재료","s":"1ea"},{"c":"MP01-0106","n":"백색크림용기 10g (RW15-TB)","k":"부재료","s":"1ea"},{"c":"MP01-0107","n":"초록뚜껑+백색크림용기 15g (RAW15G)","k":"부재료","s":"1ea"},{"c":"MP01-0108","n":"분홍뚜껑+백색크림용기 15g (RAW15Pi)","k":"부재료","s":"1ea"},{"c":"MP01-0109","n":"백색진공펌프용기 5g (PB-WT5)","k":"부재료","s":"1ea"},{"c":"MP01-0110","n":"백색진공펌프용기 10g (PB-WT10)","k":"부재료","s":"1ea"},{"c":"MP01-0111","n":"백색진공펌프용기 15g (PB-WT15)","k":"부재료","s":"1ea"},{"c":"MP01-0112","n":"백색진공펌프용기 30g (PB-WT30)","k":"부재료","s":"1ea"},{"c":"MP01-0113","n":"백색거품용기 40g (MW40)","k":"부재료","s":"1ea"},{"c":"MP01-0114","n":"백색거품용기 50g (MW50)","k":"부재료","s":"1ea"},{"c":"MP01-0115","n":"백색거품용기 60g (MW60)","k":"부재료","s":"1ea"},{"c":"MP01-0116","n":"백색거품용기 100g (MW100)","k":"부재료","s":"1ea"},{"c":"MP01-0117","n":"백색유광파우치 (FB04)","k":"부재료","s":"1ea"},{"c":"MP01-0118","n":"백색무광파우치","k":"부재료","s":"1ea"},{"c":"MP01-0119","n":"검정무광파우치","k":"부재료","s":"1ea"},{"c":"MP01-0120","n":"BLACK GLUE B01 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0121","n":"BLACK GLUE B01 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0122","n":"BLACK GLUE B01 파우치","k":"부재료","s":""},{"c":"MP01-0123","n":"CLEAR GLUE C02 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0124","n":"CLEAR GLUE C02 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0125","n":"CLEAR GLUE 파우치","k":"부재료","s":""},{"c":"MP01-0126","n":"인생글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0127","n":"인생글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0128","n":"아던샵 프리미엄 GLUE 용기라벨","k":"부재료","s":""},{"c":"MP01-0129","n":"아던샵 프리미엄 GLUE 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0130","n":"아던샵 프리미엄 GLUE 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0131","n":"퀸즈 프로페셔널글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0132","n":"퀸즈 프로페셔널글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0133","n":"CELEB 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0134","n":"CELEB 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0135","n":"CELEB 파우치","k":"부재료","s":""},{"c":"MP01-0136","n":"마르샤 용기라벨","k":"부재료","s":""},{"c":"MP01-0137","n":"마르샤 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0138","n":"마르샤 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0139","n":"CHERRY GLUE 용기라벨","k":"부재료","s":""},{"c":"MP01-0140","n":"CHERRY GLUE 파우치","k":"부재료","s":""},{"c":"MP01-0141","n":"아던샵 크림리무버 원형 라벨","k":"부재료","s":""},{"c":"MP01-0142","n":"퀸즈 프로페셔널 파우치","k":"부재료","s":""},{"c":"MP01-0143","n":"퀸즈글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0144","n":"퀸즈글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0145","n":"퀸즈글루 파우치","k":"부재료","s":""},{"c":"MP01-0147","n":"인생글루 파우치","k":"부재료","s":""},{"c":"MP01-0149","n":"CL 플러스 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0150","n":"CL 플러스 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0151","n":"CL 프리미엄글루 파우치","k":"부재료","s":""},{"c":"MP01-0152","n":"이글루 블랙 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0153","n":"이글루 블랙 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0154","n":"이글루 투명 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0155","n":"이글루 투명 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0156","n":"뉴프레쉬글루 용기라벨","k":"부재료","s":""},{"c":"MP01-0157","n":"뉴프레쉬글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0158","n":"뉴프레쉬글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0159","n":"뉴 콜라글루 용기라벨","k":"부재료","s":""},{"c":"MP01-0160","n":"뉴 콜라글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0161","n":"뉴 콜라글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0162","n":"뉴 사이다글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0163","n":"뉴 사이다글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0164","n":"뉴 사이다글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0165","n":"뉴 사이다글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0166","n":"사라블랙에디션 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0167","n":"사라블랙에디션 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0168","n":"사라블랙에디션 파우치","k":"부재료","s":""},{"c":"MP01-0169","n":"옵티모프라임 용기라벨 (해외)","k":"부재료","s":""},{"c":"MP01-0170","n":"옵티모프라임 파우치라벨 (해외)","k":"부재료","s":""},{"c":"MP01-0171","n":"아스터글루 1초 5g 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0172","n":"아스터글루 1초 5g 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0173","n":"아스터글루 1초 10g 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0174","n":"아스터글루 1초 10g 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0175","n":"아스터글루 1초 5g 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0176","n":"아스터글루 1초 10g 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0177","n":"아스터글루 5g 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0178","n":"아스터글루 10g 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0179","n":"아스터글루 2초 5g 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0180","n":"아스터글루 2초 5g 용기라벨 후면 (사용 x)","k":"부재료","s":""},{"c":"MP01-0181","n":"아스터글루 2초 10g 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0182","n":"아스터글루 2초 10g 용기라벨 후면 (사용 x)","k":"부재료","s":""},{"c":"MP01-0183","n":"아스터글루 2초 5g 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0184","n":"아스터글루 2초 5g 파우치라벨 후면 (사용 x)","k":"부재료","s":""},{"c":"MP01-0185","n":"아스터글루 2초 10g 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0186","n":"아스터글루 2초 10g 파우치라벨 후면 (사용 x)","k":"부재료","s":""},{"c":"MP01-0187","n":"글램래쉬 1초 블랙 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0188","n":"글램래쉬 1초 블랙 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0189","n":"글램래쉬 3초 블랙 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0190","n":"글램래쉬 3초 블랙 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0191","n":"글램래쉬 1초 블랙 파우치","k":"부재료","s":""},{"c":"MP01-0192","n":"글램래쉬 3초 블랙 파우치","k":"부재료","s":""},{"c":"MP01-0193","n":"옵티모프라임 용기라벨 (국내)","k":"부재료","s":""},{"c":"MP01-0194","n":"옵티모프라임 파우치라벨 (국내)","k":"부재료","s":""},{"c":"MP01-0195","n":"옵티모 클리어 용기라벨 (국내)","k":"부재료","s":""},{"c":"MP01-0196","n":"옵티모 클리어 파우치스티커 뒷면 (국내)","k":"부재료","s":""},{"c":"MP01-0197","n":"Top 102 글루 파우치","k":"부재료","s":""},{"c":"MP01-0198","n":"Top 102 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0199","n":"Top 102 글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0200","n":"옵티모클리어 용기라벨 (영문)","k":"부재료","s":""},{"c":"MP01-0201","n":"스노우 롱타임 1초글루 5g 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0202","n":"스노우 롱타임 1초글루5g 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0203","n":"스노우 롱타임 1초글루 5g 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0204","n":"스노우 롱타임 1초글루 5g 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0205","n":"스노우 롱타임 2초글루 5g 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0206","n":"스노우 롱타임 2초글루 5g 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0207","n":"스노우 롱타임 2초글루 5g 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0208","n":"스노우 롱타임 2초글루 5g 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0209","n":"루엔 퀵 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0210","n":"루엔글루 용기라벨 후면 (공용)","k":"부재료","s":""},{"c":"MP01-0211","n":"루엔 퀵 글루 파우치","k":"부재료","s":""},{"c":"MP01-0212","n":"루엔 숏 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0214","n":"루엔 숏 글루 파우치","k":"부재료","s":""},{"c":"MP01-0215","n":"빼쎄 프로픽스 글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0216","n":"빼쎄 프로픽스 글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0217","n":"빼쎄 프로픽스 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0218","n":"빼쎄 프로픽스 글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0219","n":"프리미엄 티알 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0220","n":"프리미엄 티알 글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0221","n":"프리미엄 티알 글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0222","n":"프리미엄 티알 글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0223","n":"미브린 프로앤글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0224","n":"미브린 프로앤글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0225","n":"미브린 프로앤글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0226","n":"미브린 프로앤글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0228","n":"래쉬크루 코코울트라 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0229","n":"래쉬크루 코코울트라 글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0230","n":"래쉬크루 코코울트라 글루 파우치","k":"부재료","s":""},{"c":"MP01-0231","n":"라몽 래쉬몬스터 글루 리무버 용기","k":"부재료","s":""},{"c":"MP01-0232","n":"은박씰링지","k":"부재료","s":""},{"c":"MP01-0235","n":"PBS 크림리무버 튜브 (사입)","k":"부재료","s":""},{"c":"MP01-0237","n":"미라클뷰티인터 화연디아벨라글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0238","n":"미라클뷰티인터 화연디아벨라글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0239","n":"미라클뷰티인터 화연디아벨라글루 파우치","k":"부재료","s":""},{"c":"MP01-0240","n":"미라클뷰티인터 리무버 뚜껑 용기라벨","k":"부재료","s":""},{"c":"MP01-0243","n":"꽁글루 1초 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0244","n":"꽁글루 1초 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0245","n":"꽁글루 1초 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0246","n":"꽁글루 1초 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0247","n":"꽁글루 3초 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0248","n":"꽁글루 3초 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0249","n":"꽁글루 3초 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0250","n":"꽁글루 3초 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0251","n":"블랙뮤즈글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0252","n":"블랙뮤즈글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0253","n":"블랙뮤즈글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0254","n":"블랙뮤즈글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0255","n":"꽁퀵 용기라벨","k":"부재료","s":""},{"c":"MP01-0256","n":"미앤비즈 크림리무버 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0257","n":"엘루스고센 세인트글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0258","n":"엘루스고센 세인트글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0259","n":"엘루스고센 세인트글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0260","n":"엘루스고센 루이드글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0261","n":"엘루스고센 루이드글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0262","n":"엘루스고센 루이드글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0263","n":"엘루스고센 곰돌이플러스글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0264","n":"엘루스고센 곰돌이플러스글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0265","n":"엘루스고센 곰돌이플러스글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0266","n":"신디뷰티 V-507 용기","k":"부재료","s":""},{"c":"MP01-0267","n":"엘루스고센 세인트글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0268","n":"엘루스고센 루이드글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0269","n":"엘루스고센 곰돌이플러스글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0270","n":"제이티글로벌 래쉬샴푸 용기라벨","k":"부재료","s":""},{"c":"MP01-0271","n":"마루뷰티 에루샤 펌제 1제 파우치","k":"부재료","s":""},{"c":"MP01-0272","n":"마루뷰티 에루샤 펌제 2제 파우치","k":"부재료","s":""},{"c":"MP01-0273","n":"마루뷰티 에루샤 펌제 3제 파우치","k":"부재료","s":""},{"c":"MP01-0277","n":"미앤비즈 QUEENS 펌제 #1 파우치","k":"제품","s":""},{"c":"MP01-0278","n":"미앤비즈 QUEENS 펌제 #2 파우치","k":"부재료","s":""},{"c":"MP01-0279","n":"QUEENS 펌제 파우치","k":"부재료","s":""},{"c":"MP01-0280","n":"조은뷰티 래쉬큐어링 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0281","n":"라몽 래쉬샴푸 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0283","n":"AG뷰티 릴리 파우치 (사입)","k":"부재료","s":""},{"c":"MP01-0284","n":"AG뷰티 릴리 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0285","n":"AG뷰티 릴리글루 파우치스티커 (사입)","k":"부재료","s":""},{"c":"MP01-0286","n":"AG뷰티 아쿠아 겔 리무버 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0287","n":"AG뷰티 아쿠아 겔 리무버 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0290","n":"라몽 세럼 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0292","n":"옵티모클리어 뒷면 바코드","k":"부재료","s":""},{"c":"MP01-0294","n":"실리콘워크패드 15도","k":"부재료","s":""},{"c":"MP01-0295","n":"실리콘워크패드 안내지","k":"부재료","s":""},{"c":"MP01-0296","n":"실리콘워크패드 포장지","k":"부재료","s":""},{"c":"MP01-0298","n":"AG 방습제 0.5g (릴리글루)","k":"부재료","s":""},{"c":"MP01-0299","n":"AG뷰티 5g 전처리제 샘플 라벨 전면","k":"부재료","s":""},{"c":"MP01-0300","n":"AG뷰티 5g 전처리제 샘플 라벨 후면","k":"부재료","s":""},{"c":"MP01-0301","n":"AG뷰티 5g 후처리제 샘플 라벨 전면","k":"부재료","s":""},{"c":"MP01-0302","n":"AG뷰티 5g 후처리제 샘플 라벨 후면","k":"부재료","s":""},{"c":"MP01-0303","n":"AG뷰티 래쉬밸런서, 슈퍼본더30g 꼬깔캡 (사입)","k":"부재료","s":""},{"c":"MP01-0304","n":"AG뷰티 래쉬밸런서30g 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0305","n":"AG뷰티 래쉬밸런서30g 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0306","n":"AG뷰티 슈퍼본더30g 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0307","n":"AG뷰티 슈퍼본더30g 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0309","n":"루엔 마일드 크림리무버 단상자","k":"부재료","s":""},{"c":"MP01-0310","n":"뷰티인글로벌 퓨어러빙 글루 라벨 전면","k":"부재료","s":""},{"c":"MP01-0311","n":"뷰티인글로벌 퓨어러빙 글루 라벨 후면","k":"부재료","s":""},{"c":"MP01-0312","n":"뷰티인글로벌 퓨어러빙 글루 파우치 전면","k":"부재료","s":""},{"c":"MP01-0313","n":"뷰티인글로벌 퓨어러빙 글루 파우치 후면","k":"부재료","s":""},{"c":"MP01-0314","n":"뷰티인글로벌 트리플 노글루 라벨 전면 (국문)","k":"부재료","s":""},{"c":"MP01-0315","n":"뷰티인글로벌 트리플 노글루 라벨 후면 (국문)","k":"부재료","s":""},{"c":"MP01-0316","n":"뷰티인글로벌 트리플 노글루 라벨 전면 (영문)","k":"부재료","s":""},{"c":"MP01-0317","n":"뷰티인글로벌 트리플 노글루 라벨 후면 (영문)","k":"부재료","s":""},{"c":"MP01-0318","n":"뷰티인글로벌 트리플 노글루 파우치라벨 전면 (국문)","k":"부재료","s":""},{"c":"MP01-0319","n":"뷰티인글로벌 트리플 노글루 파우치라벨 후면 (국문)","k":"부재료","s":""},{"c":"MP01-0320","n":"뷰티인글로벌 트리플 노글루 파우치라벨 전면 (영문)","k":"부재료","s":""},{"c":"MP01-0321","n":"뷰티인글로벌 트리플 노글루 파우치라벨 후면 (영문)","k":"부재료","s":""},{"c":"MP01-0322","n":"뷰티인글로벌 젠틀홀드글루 라벨 전면 (영문)","k":"부재료","s":""},{"c":"MP01-0323","n":"뷰티인글로벌 젠틀홀드글루 라벨 후면 (영문)","k":"부재료","s":""},{"c":"MP01-0324","n":"뷰티인글로벌 젠틀홀드글루 파우치라벨 전면 (영문)","k":"부재료","s":""},{"c":"MP01-0325","n":"뷰티인글로벌 젠틀홀드글루 파우치라벨 후면 (영문)","k":"부재료","s":""},{"c":"MP01-0326","n":"뷰티인글로벌 리프레쉬마이크로폼클렌저 용기라벨 (국문)","k":"부재료","s":""},{"c":"MP01-0327","n":"뷰티인글로벌 리프레쉬마이크로폼클렌저 용기라벨 (영문)","k":"부재료","s":""},{"c":"MP01-0328","n":"뷰티인글로벌 PH부스터 용기라벨","k":"부재료","s":""},{"c":"MP01-0329","n":"뷰티인글로벌 PH부스터, 슈퍼본더 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0330","n":"뷰티인글로벌 슈퍼본더 용기라벨","k":"부재료","s":""},{"c":"MP01-0332","n":"뷰티인글로벌 제로트레이스리무버 용기","k":"부재료","s":""},{"c":"MP01-0333","n":"뷰티인글로벌 순수리무버 용기","k":"부재료","s":""},{"c":"MP01-0334","n":"뷰티인글로벌 래쉬&브로우펌제 1제 파우치","k":"부재료","s":""},{"c":"MP01-0335","n":"뷰티인글로벌 래쉬&브로우펌제 2제 파우치","k":"부재료","s":""},{"c":"MP01-0336","n":"뷰티인글로벌 래쉬&브로우펌제 3제 파우치","k":"부재료","s":""},{"c":"MP01-0339","n":"제이티글로벌 래쉬샴푸 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0340","n":"MACY JAVA글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0341","n":"MACY JAVA글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0342","n":"MACY ALPHA글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0343","n":"MACY ALPHA글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0344","n":"MACY BRAVO글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0345","n":"MACY BRAVO글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0346","n":"MACY BREEZE 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0347","n":"MACY BREEZE 글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0348","n":"MACY NOOR 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0349","n":"MACY NOOR 글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0350","n":"MACY CHARLI 글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0351","n":"MACY CHARLI 글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0352","n":"MACY 라매시 펌 1제 파우치","k":"부재료","s":""},{"c":"MP01-0353","n":"MACY 라매시 펌 2제 파우치","k":"부재료","s":""},{"c":"MP01-0354","n":"MACY 라매시 펌 3제 파우치","k":"부재료","s":""},{"c":"MP01-0355","n":"MACY 라매시 펌 1제 튜브용기","k":"부재료","s":""},{"c":"MP01-0356","n":"MACY 라매시 펌 2제 튜브용기","k":"부재료","s":""},{"c":"MP01-0357","n":"MACY 라매시 펌 3제 튜브용기","k":"부재료","s":""},{"c":"MP01-0358","n":"MACY 라매시 리프트밤 용기","k":"부재료","s":""},{"c":"MP01-0359","n":"MACY 라매시 픽서 용기","k":"부재료","s":""},{"c":"MP01-0360","n":"MACY 라매시 래쉬샴푸 용기","k":"부재료","s":""},{"c":"MP01-0361","n":"라라래쉬 래쉬샴푸 용기라벨","k":"부재료","s":""},{"c":"MP01-0362","n":"라라래쉬 FAST글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0363","n":"라라래쉬 FAST글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0364","n":"라라래쉬 SLOW글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0365","n":"라라래쉬 SLOW글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0366","n":"인터워크 프로씰러 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0367","n":"인터워크 프로씰러 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0368","n":"더빔 FOULA 래쉬픽서 용기 10ml (사입)","k":"부재료","s":""},{"c":"MP01-0369","n":"라몽 끌링롯드 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0370","n":"라몽 핀셋세척액 용기 (GB-TW20)","k":"부재료","s":""},{"c":"MP01-0371","n":"라몽 핀셋세척액 스펀지 - 노랑 (SP-Y01)","k":"부재료","s":""},{"c":"MP01-0372","n":"뷰티하이클래스 7주글루 1초 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0373","n":"뷰티하이클래스 7주글루 용기라벨 후면 (공통)","k":"부재료","s":""},{"c":"MP01-0374","n":"뷰티하이클래스 7주글루 파우치","k":"부재료","s":""},{"c":"MP01-0375","n":"뷰티하이클래스 7주글루 2초 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0377","n":"뷰티하이클래스 7주글루 1초 투명 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0379","n":"인터워크 유누꼬글루 블랙 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0380","n":"인터워크 유누꼬글루 백색 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0383","n":"라몽 펌왁스 용기","k":"부재료","s":""},{"c":"MP01-0384","n":"수축필름","k":"부재료","s":""},{"c":"MP01-0385","n":"다이아래쉬 펌왁스 유리용기 회색캡 5g","k":"부재료","s":""},{"c":"MP01-0386","n":"다이아래쉬 펌왁스 유리용기 회색캡 15g","k":"부재료","s":""},{"c":"MP01-0387","n":"다이아래쉬 펌글루 투명용기 백색캡","k":"부재료","s":""},{"c":"MP01-0389","n":"다이아래쉬 래쉬픽서 검정용기 검정캡","k":"부재료","s":""},{"c":"MP01-0390","n":"다이아래쉬 펌 1제 파우치","k":"부재료","s":""},{"c":"MP01-0391","n":"다이아래쉬 펌 2제 파우치","k":"부재료","s":""},{"c":"MP01-0392","n":"쉬즈라인 필리밀리쌍커풀액 용기","k":"부재료","s":""},{"c":"MP01-0393","n":"쉬즈라인 필리밀리쌍커풀액 실리콘팁","k":"부재료","s":""},{"c":"MP01-0394","n":"라몽 마이메구 펌 1제 파우치 0.5g","k":"부재료","s":""},{"c":"MP01-0395","n":"라몽 마이메구 펌 2제 파우치 0.5g","k":"부재료","s":""},{"c":"MP01-0396","n":"라몽 마이메구 펌 3제 파우치 0.5g","k":"부재료","s":""},{"c":"MP01-0397","n":"제이시스 그리타글루 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0398","n":"제이시스 그리타글루 파우치라벨 전면 (사입)","k":"부재료","s":""},{"c":"MP01-0399","n":"제이시스 럭스뮤즈글루 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0400","n":"제이시스 럭스뮤즈글루 파우치라벨 전면 (사입)","k":"부재료","s":""},{"c":"MP01-0401","n":"백색사각용기 10g (DQS-W10)","k":"부재료","s":""},{"c":"MP01-0402","n":"검정사각용기 10g (DQS-B10)","k":"부재료","s":""},{"c":"MP01-0403","n":"래쉬스토리 베스트글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0404","n":"래쉬스토리 베스트글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0405","n":"스타속눈썹전문샵 아나글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0406","n":"스타속눈썹전문샵 아나글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0407","n":"엘루스고센 리츠글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0408","n":"엘루스고센 리츠글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0409","n":"엘루스고센 브리제글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0410","n":"엘루스고센 브리제글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0416","n":"이글루 블랙 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0417","n":"이글루 투명 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0418","n":"이글루 블랙 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0419","n":"이글루 투명 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0420","n":"엘루스고센 리츠글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0421","n":"엘루스고센 리츠글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0422","n":"엘루스고센 브리제글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0423","n":"엘루스고센 브리제글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0424","n":"스타속눈썹전문샵 아나글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0425","n":"스타속눈썹전문샵 아나글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0426","n":"래쉬스토리 베스트글루 용기라벨","k":"부재료","s":""},{"c":"MP01-0427","n":"젬소 다비제이글루 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0429","n":"젬소 제부미글루(셀프형) 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0431","n":"미앤비즈 펌왁스 용기라벨","k":"부재료","s":""},{"c":"MP01-0432","n":"미앤비즈 펌왁스 용기라벨 (원형)","k":"부재료","s":""},{"c":"MP01-0433","n":"미앤비즈 펌왁스 파우치","k":"부재료","s":""},{"c":"MP01-0434","n":"조은뷰티 끌올 속눈썹 펌크림 1제 파우치","k":"부재료","s":""},{"c":"MP01-0435","n":"조은뷰티 끌올 속눈썹 펌크림 2제 파우치","k":"부재료","s":""},{"c":"MP01-0436","n":"센트홀릭 달팽이 펌1제 파우치","k":"부재료","s":""},{"c":"MP01-0437","n":"센트홀릭 달팽이 펌2제 파우치","k":"부재료","s":""},{"c":"MP01-0438","n":"래쉬티비 아이돌 펌1제 파우치","k":"부재료","s":""},{"c":"MP01-0439","n":"래쉬티비 아이돌 펌2제 파우치","k":"부재료","s":""},{"c":"MP01-0440","n":"루나뷰티 루나래쉬펌제 1제 파우치","k":"부재료","s":""},{"c":"MP01-0441","n":"루나뷰티 루나래쉬펌제 2제 파우치","k":"부재료","s":""},{"c":"MP01-0442","n":"루나뷰티 루나래쉬펌제 3제 파우치","k":"부재료","s":""},{"c":"MP01-0444","n":"라몽 데일리 속눈썹접착제 (백색) 용기","k":"부재료","s":""},{"c":"MP01-0445","n":"라몽 데일리 속눈썹접착제 (블랙) 용기","k":"부재료","s":""},{"c":"MP01-0446","n":"래쉬티비 아이돌래쉬글루 클리어 용기","k":"부재료","s":""},{"c":"MP01-0447","n":"래쉬티비 아이돌래쉬글루 블랙 용기","k":"부재료","s":""},{"c":"MP01-0449","n":"뽀블링 코코리턴울트라리무버 용기","k":"부재료","s":""},{"c":"MP01-0450","n":"젬소 다비제이리무버 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0451","n":"젬소 제부미리무버 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0452","n":"AG&BEAUTY 진공보관함 용기","k":"부재료","s":""},{"c":"MP01-0453","n":"마루뷰티 뮤즈큐어링 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0454","n":"마루뷰티 뮤즈큐어링 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0456","n":"루엔 마일드 크림리무버 용기","k":"부재료","s":""},{"c":"MP01-0458","n":"다이아래쉬 래쉬픽서 백색용기 백색캡","k":"부재료","s":""},{"c":"MP01-0459","n":"센트홀릭 스노우 펌킹밤 용기라벨 (띠지)","k":"부재료","s":""},{"c":"MP01-0460","n":"센트홀릭 스노우 펌킹밤 용기라벨 (원형)","k":"부재료","s":""},{"c":"MP01-0461","n":"AG 래쉬샴푸플러스 (50ml) 용기","k":"부재료","s":""},{"c":"MP01-0462","n":"AG 래쉬샴푸플러스 (100ml) 용기","k":"부재료","s":""},{"c":"MP01-0463","n":"AG 일본 래쉬샴푸플러스 용기라벨(공용) (사입)","k":"부재료","s":""},{"c":"MP01-0465","n":"MACY 라매시 글루 5종세트 단상자","k":"부재료","s":""},{"c":"MP01-0466","n":"MACY 파우치 라매시 펌제 1제 단상자","k":"부재료","s":""},{"c":"MP01-0467","n":"MACY 파우치 라매시 펌제 2제 단상자","k":"부재료","s":""},{"c":"MP01-0468","n":"MACY 파우치 라매시 펌제 3제 단상자","k":"부재료","s":""},{"c":"MP01-0469","n":"MACY 라매시 튜브 펌제 1제 단상자","k":"부재료","s":""},{"c":"MP01-0470","n":"MACY 라매시 튜브 펌제 2제 단상자","k":"부재료","s":""},{"c":"MP01-0471","n":"MACY 라매시 튜브 펌제 3제 단상자","k":"부재료","s":""},{"c":"MP01-0472","n":"MACY LAMACY 펌제세트 단상자","k":"부재료","s":""},{"c":"MP01-0473","n":"MACY 라매시 리프트밤 단상자","k":"부재료","s":""},{"c":"MP01-0474","n":"MACY 라매시 픽서 용기 단상자","k":"부재료","s":""},{"c":"MP01-0475","n":"MACY 라매시 Lash Lift Glue","k":"부재료","s":""},{"c":"MP01-0476","n":"MACY 라매시 Lash Lift Rods","k":"부재료","s":""},{"c":"MP01-0477","n":"MACY 라매시 Under-Eye Pads","k":"부재료","s":""},{"c":"MP01-0478","n":"MACY 라매시 Lash Lift Comb","k":"부재료","s":""},{"c":"MP01-0479","n":"MACY 라매시 Eyelash Brush","k":"부재료","s":""},{"c":"MP01-0480","n":"MACY 라매시 Micro Brush","k":"부재료","s":""},{"c":"MP01-0481","n":"MACY 라매시 래쉬샴푸 단상자","k":"부재료","s":""},{"c":"MP01-0482","n":"MACY 라매시 롯드 단상자","k":"부재료","s":""},{"c":"MP01-0485","n":"프리티제니 부일펌 1제 파우치","k":"부재료","s":""},{"c":"MP01-0486","n":"프리티제니 부일펌 2제 파우치","k":"부재료","s":""},{"c":"MP01-0487","n":"미앤비즈 전처리제 용기","k":"부재료","s":""},{"c":"MP01-0488","n":"미앤비즈 전처리제 용기라벨 (띠지)","k":"부재료","s":""},{"c":"MP01-0489","n":"투명트위스트펜 2g (PS2T(T)-FS)","k":"부재료","s":""},{"c":"MP01-0490","n":"미앤비즈 겔리무버 용기라벨","k":"부재료","s":""},{"c":"MP01-0492","n":"라라래쉬 전처리제 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0493","n":"라라래쉬 전처리제 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0494","n":"라라래쉬 슈퍼본더 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0495","n":"라라래쉬 슈퍼본더 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0497","n":"라라래쉬 펌글루 용기라벨","k":"부재료","s":""},{"c":"MP01-0501","n":"아던샵 프리미엄 GLUE 병 스티커","k":"부재료","s":""},{"c":"MP01-0502","n":"기타","k":"부재료","s":""},{"c":"MP01-0503","n":"초록무광금속뚜껑(DQS2-iG)","k":"부재료","s":""},{"c":"MP01-0504","n":"아스터글루 1초 10g 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0506","n":"시그니처글루 용기라벨","k":"부재료","s":""},{"c":"MP01-0507","n":"시그니처글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0508","n":"라몽 드라잉부스터 용기","k":"부재료","s":""},{"c":"MP01-0509","n":"라몽 래쉬몬스터 글루 리무버 폼패드","k":"부재료","s":""},{"c":"MP01-0511","n":"인터워크 프로씰러 소박스","k":"부재료","s":""},{"c":"MP01-0512","n":"인터워크 프로씰러 라벨","k":"부재료","s":""},{"c":"MP01-0513","n":"제이티글로벌 래쉬움리페어 3제 파우치","k":"부재료","s":""},{"c":"MP01-0514","n":"제이티글로벌 래쉬움리페어 3제 단상자","k":"부재료","s":""},{"c":"MP01-0516","n":"신디뷰티 씰러 용기","k":"부재료","s":""},{"c":"MP01-0517","n":"신디뷰티 펌글루 (PN03C) 용기","k":"부재료","s":""},{"c":"MP01-0518","n":"신디뷰티 펌글루 (PN01) 용기","k":"부재료","s":""},{"c":"MP01-0520","n":"뷰티인글로벌 래쉬듀픽서 용기","k":"부재료","s":""},{"c":"MP01-0521","n":"뷰티인글로벌 래쉬실드픽서 용기","k":"부재료","s":""},{"c":"MP01-0523","n":"라라래쉬 펌왁스 용기라벨","k":"부재료","s":""},{"c":"MP01-0556","n":"라몽 래쉬리웨이브 펌1제 파우치","k":"부재료","s":""},{"c":"MP01-0557","n":"라몽 래쉬리웨이브 펌2제 파우치","k":"부재료","s":""},{"c":"MP01-0558","n":"라몽 래쉬리웨이브 펌3제 파우치","k":"부재료","s":""},{"c":"MP01-0559","n":"AG 벨베티 리프팅크림 펌1제 튜브","k":"부재료","s":""},{"c":"MP01-0560","n":"AG 라스팅컬 셋팅크림 펌2제 튜브","k":"부재료","s":""},{"c":"MP01-0561","n":"AG 크림더리페어 펌3제 튜브","k":"부재료","s":""},{"c":"MP01-0562","n":"쉬즈라인 필리밀리쌍커풀액 투명캡","k":"부재료","s":""},{"c":"MP01-0563","n":"라몽 소프트무스 래쉬샴푸 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0564","n":"라몽 플래쉬버터 펌왁스 용기","k":"부재료","s":""},{"c":"MP01-0565","n":"AG뷰티 래쉬밸런서, 슈퍼본더30g 유리용기 (사입)","k":"부재료","s":""},{"c":"MP01-0566","n":"AG뷰티 래쉬밸런서, 슈퍼본더30g 간지 (사입)","k":"부재료","s":""},{"c":"MP01-0567","n":"AG뷰티 래쉬밸런서5g 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0568","n":"AG뷰티 슈퍼본더5g 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0569","n":"AG 래쉬샴푸플러스 (50ml) 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0570","n":"AG 래쉬샴푸플러스 (50ml) 브러시 (사입)","k":"부재료","s":""},{"c":"MP01-0571","n":"AG 래쉬샴푸플러스 (100ml) 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0572","n":"AG 래쉬샴푸플러스 (100ml) 브러시 (사입)","k":"부재료","s":""},{"c":"MP01-0573","n":"AG 벨베티 리프팅크림 펌1제 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0574","n":"AG 라스팅컬 셋팅크림 펌2제 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0575","n":"AG 크림더리페어 펌3제 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0576","n":"센트홀릭 스노우 펌킹밤 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0577","n":"PBS 래쉬홀릭 래쉬샴푸 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0578","n":"PBS 래쉬홀릭 래수샴푸 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0579","n":"PBS 래쉬홀릭 래쉬샴푸 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0580","n":"루나뷰티 펌1제 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0581","n":"루나뷰티 펌2제 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0582","n":"루나뷰티 펌3제 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0584","n":"엘루스고센 미끄럼방지액 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0585","n":"젬소 다비제이글루 파우치 (사입)","k":"부재료","s":""},{"c":"MP01-0586","n":"젬소 제부미글루(셀프형) 파우치 (사입)","k":"부재료","s":""},{"c":"MP01-0587","n":"젬소 다비제이리무버 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0588","n":"래쉬스토리 베스트큐어링 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0589","n":"래쉬스토리 베스트큐어링 용기라벨","k":"부재료","s":""},{"c":"MP01-0590","n":"래쉬스토리 베스트큐어링 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0591","n":"래쉬스토리 베스트큐어링 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0592","n":"누누샵 그릭요거밤 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0593","n":"백색뚜껑+투명용기+스크류브러쉬 10g (S2T(W)-W10)","k":"부재료","s":""},{"c":"MP01-0594","n":"Pulse Damper SET (damper + tube)","k":"상품","s":""},{"c":"MP01-0595","n":"검정뚜껑+노란용기+벡색리드15g (RCYB15-P01)","k":"제품","s":""},{"c":"MP01-0596","n":"알루미늄실링지15g (LBP-28)","k":"상품","s":""},{"c":"MP01-0597","n":"라몽 마이메구 펌 1제 파우치 0.8g","k":"부재료","s":""},{"c":"MP01-0598","n":"라몽 마이메구 펌 2제 파우치 0.8g","k":"부재료","s":""},{"c":"MP01-0599","n":"라몽 마이메구 펌 3제 파우치 0.8g","k":"부재료","s":""},{"c":"MP01-0600","n":"금색유광금속뚜껑 (은줄X) (DQAC0-Go-KOR)","k":"부재료","s":""},{"c":"MP01-0601","n":"은색유광금속뚜껑 (은줄X) (DQAC-Si)","k":"부재료","s":""},{"c":"MP01-0602","n":"파란T자금속뚜껑 (DQT3-Mbu)","k":"부재료","s":""},{"c":"MP01-0603","n":"검정T자금속뚜껑 (DQT3-MB)","k":"부재료","s":""},{"c":"MP01-0604","n":"빨간T자금속뚜껑 (DQT3-MR)","k":"부재료","s":""},{"c":"MP01-0605","n":"백색원형용기 10g (DQO-W10)","k":"부재료","s":""},{"c":"MP01-0606","n":"검정원형용기 10g (DQO-B10)","k":"부재료","s":""},{"c":"MP01-0607","n":"구형)백색타원용기 5g (JP5B)","k":"부재료","s":""},{"c":"MP01-0608","n":"구형)백색타원용기 10g (JP0B)","k":"부재료","s":""},{"c":"MP01-0609","n":"구형)백색타원용기 15g (JP15B)","k":"부재료","s":""},{"c":"MP01-0610","n":"구형)검정사각용기 5g (JF5H)","k":"부재료","s":""},{"c":"MP01-0611","n":"구형)검정사각용기 10g (JF0H)","k":"부재료","s":""},{"c":"MP01-0612","n":"구형)백색사각용기 10g (JF0B)","k":"부재료","s":""},{"c":"MP01-0613","n":"구형)백색원형용기 5g (JT5B)","k":"부재료","s":""},{"c":"MP01-0614","n":"구형)검정삼각용기 5g (JL5H)","k":"부재료","s":""},{"c":"MP01-0615","n":"구형)검정삼각용기 10g (JL0H)","k":"부재료","s":""},{"c":"MP01-0616","n":"구형)백색삼각용기 10g (JL0B)","k":"부재료","s":""},{"c":"MP01-0617","n":"구형)초록6각뚜껑 (禄六)","k":"부재료","s":""},{"c":"MP01-0618","n":"구형)분홍유광금속뚜껑 (Q-亮粉)","k":"부재료","s":""},{"c":"MP01-0619","n":"구형)금색유광금속뚜껑 (Q-亮金)","k":"부재료","s":""},{"c":"MP01-0620","n":"구형)보라유광금속뚜껑 (Q-亮紫)","k":"부재료","s":""},{"c":"MP01-0621","n":"구형)초록반무광금속뚜껑 (Q-哑禄)","k":"부재료","s":""},{"c":"MP01-0622","n":"구형)금색무광금속뚜껑 (SS-A303)","k":"부재료","s":""},{"c":"MP01-0623","n":"구형)검정무광금속뚜껑 (SS-A301)","k":"부재료","s":""},{"c":"MP01-0624","n":"구형)분홍무광금속뚜껑 (SS-A306)","k":"부재료","s":""},{"c":"MP01-0625","n":"구형)은색무광금속뚜껑 (SS-A302)","k":"부재료","s":""},{"c":"MP01-0626","n":"구형)초록무광금속뚜껑 (SS-A308)","k":"부재료","s":""},{"c":"MP01-0627","n":"구형)파란무광금속뚜껑 (은줄X) (SS-Bu-KOR)","k":"부재료","s":""},{"c":"MP01-0628","n":"구형)초록무광금속뚜껑 (은줄X) (SS-G-KOR)","k":"부재료","s":""},{"c":"MP01-0629","n":"구형)금색격자무늬유광금속뚜껑 (-)","k":"부재료","s":""},{"c":"MP01-0630","n":"구형)은색격자무늬유광금속뚜껑 (-)","k":"부재료","s":""},{"c":"MP01-0631","n":"구형)검정격자무늬유광금속뚜껑 (-)","k":"부재료","s":""},{"c":"MP01-0632","n":"구형)갈색사선무늬반무광금속뚜껑 (Y-갈색)","k":"부재료","s":""},{"c":"MP01-0633","n":"구형)파란T자금속뚜껑 (T-哑蓝)","k":"부재료","s":""},{"c":"MP01-0634","n":"구형)검정T자금속뚜껑 (T-哑黑)","k":"부재료","s":""},{"c":"MP01-0635","n":"인쇄)백색뚜껑사각용기 1g (CD1-T(W)1) / 샘플용","k":"부재료","s":""},{"c":"MP01-0636","n":"금색뚜껑+투명용기+솜브러쉬 5g (-)","k":"부재료","s":""},{"c":"MP01-0637","n":"백색트위스트펜 2g ((PS2T(W)-FS)","k":"부재료","s":""},{"c":"MP01-0638","n":"검정크림용기 5g (XM05H)","k":"부재료","s":""},{"c":"MP01-0639","n":"검정크림용기 10g (XM10H)","k":"부재료","s":""},{"c":"MP01-0640","n":"백색항아리용기 10g (MW10)","k":"부재료","s":""},{"c":"MP01-0641","n":"백색항아리용기 20g (MW20)","k":"부재료","s":""},{"c":"MP01-0642","n":"분홍항아리용기 20g (MTPi20)","k":"부재료","s":""},{"c":"MP01-0643","n":"MACY 매시펌1제 튜브용기 15g (-)","k":"부재료","s":""},{"c":"MP01-0644","n":"MACY 매시펌2제 튜브용기 15g (-)","k":"부재료","s":""},{"c":"MP01-0645","n":"MACY 매시펌3제 튜브용기 15g (-)","k":"부재료","s":""},{"c":"MP01-0646","n":"(구형)젬소 다비제이글루 파우치 (사입)","k":"부재료","s":""},{"c":"MP01-0647","n":"젬소 제부미리무버 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0648","n":"로마니리무버 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0649","n":"로마니글루 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0650","n":"센트홀릭 달팽이 펌1제 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0651","n":"센트홀릭 달팽이 펌2제 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0652","n":"센트홀릭 래쉬버터 미니 단상자","k":"부재료","s":""},{"c":"MP01-0653","n":"센트홀릭 래쉬버터 투명+블랙 단상자","k":"부재료","s":""},{"c":"MP01-0654","n":"센트홀릭 래쉬버터 투명+투명 단상자","k":"부재료","s":""},{"c":"MP01-0655","n":"엘루스고센 프리제글루 용기라벨 전면 (사입)","k":"부재료","s":""},{"c":"MP01-0656","n":"엘루스고센 프리제글루 용기라벨 후면 (사입)","k":"부재료","s":""},{"c":"MP01-0657","n":"엘루스고센 프리제글루 파우치라벨 전면 (사입)","k":"부재료","s":""},{"c":"MP01-0658","n":"엘루스고센 프리제글루 파우치라벨 후면 (사입)","k":"부재료","s":""},{"c":"MP01-0659","n":"라몽 드라잉부스터 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0660","n":"라몽 드라잉부스터 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0661","n":"제이티글로벌 래쉬샴푸 용기라벨","k":"부재료","s":""},{"c":"MP01-0662","n":"PBS 모아글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0663","n":"PBS 모아글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0664","n":"PBS 모아글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0665","n":"PBS 모아글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0666","n":"아사달뷰티 프로글루 용기라벨","k":"부재료","s":""},{"c":"MP01-0667","n":"아사달뷰티 프로글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0668","n":"아사달뷰티 프로글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0669","n":"제이시스 그리타글루 파우치라벨 후면 (사입)","k":"부재료","s":""},{"c":"MP01-0670","n":"제이시스 럭스뮤즈글루 파우치라벨 후면 (사입)","k":"부재료","s":""},{"c":"MP01-0671","n":"시그니처글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0672","n":"하이엔드글루 글루라벨","k":"부재료","s":""},{"c":"MP01-0673","n":"하이엔드글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0674","n":"하이엔드글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0675","n":"뷰티인글로벌 비스코플렉스 글루라벨 (영문)","k":"부재료","s":""},{"c":"MP01-0676","n":"뷰티인글로벌 비스코플렉스 파우치라벨 전면 (영문)","k":"부재료","s":""},{"c":"MP01-0677","n":"뷰티인글로벌 비스코플렉스 파우치라벨 후면 (영문)","k":"부재료","s":""},{"c":"MP01-0678","n":"뷰티인글로벌 스피드홀드 글루라벨 (영문)","k":"부재료","s":""},{"c":"MP01-0679","n":"뷰티인글로벌 스피드홀드 파우치라벨 전면 (영문)","k":"부재료","s":""},{"c":"MP01-0680","n":"뷰티인글로벌 스피드홀드 파우치라벨 후면 (영문)","k":"부재료","s":""},{"c":"MP01-0681","n":"젬소 다비제이글루 리무버단상자라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0682","n":"로마니 리무버라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0683","n":"로마니 글루라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0684","n":"백색크림용기 5g (RW5) / 내부용량 10g","k":"부재료","s":""},{"c":"MP01-0685","n":"검정크림용기 15g (XM15H)","k":"부재료","s":""},{"c":"MP01-0686","n":"프리티제니 아이래쉬펌1제 (중국OEM) 파우치","k":"부재료","s":""},{"c":"MP01-0687","n":"프리티제니 아이래쉬펌2제 (중국OEM) 파우치","k":"부재료","s":""},{"c":"MP01-0688","n":"더빔 FOULA 래쉬픽서 용기 5ml (사입)","k":"부재료","s":""},{"c":"MP01-0689","n":"센트홀릭 래쉬버터 미니 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0690","n":"센트홀릭 래쉬버터 듀얼 투명+블랙 브러시 (중체) (사입)","k":"부재료","s":""},{"c":"MP01-0691","n":"백색뚜껑+투명용기+마이크로브러쉬 10ml (S1T(W)-WS10)","k":"부재료","s":""},{"c":"MP01-0692","n":"지퍼백","k":"부재료","s":""},{"c":"MP01-0693","n":"제이엘코스메틱 젠틀래쉬샴푸 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0694","n":"제이엘코스메틱 젠틀래쉬샴푸 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0695","n":"제이엘코스메틱 젠틀래쉬샴푸 용기 (사입)","k":"부재료","s":""},{"c":"MP01-0700","n":"알리바바 FINNLASH KICKIT 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0701","n":"알리바바 FINNLASH KICKIT 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0702","n":"라몽 마이메구 펌 1제 파우치 0.5g (2026)","k":"부재료","s":""},{"c":"MP01-0703","n":"라몽 마이메구 펌 2제 파우치 0.5g (2026)","k":"부재료","s":""},{"c":"MP01-0704","n":"라몽 마이메구 펌 3제 파우치 0.5g (2026)","k":"부재료","s":""},{"c":"MP01-0705","n":"운임비","k":"부재료","s":""},{"c":"MP01-0706","n":"제판비","k":"부재료","s":""},{"c":"MP01-0707","n":"뷰티인글로벌 펌1제 파우치 (0.8g)","k":"부재료","s":""},{"c":"MP01-0708","n":"보라메디코스 컬-액션밤 용기","k":"부재료","s":""},{"c":"MP01-0709","n":"보라메디코스 컬-액션밤 단상자","k":"부재료","s":""},{"c":"MP01-0710","n":"알리바바 MBNTL CLASSIC (0.5S<) 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0711","n":"알리바바 MBNTL CLASSIC (0.5S<) 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0712","n":"알리바바 MBNTL CLASSIC (0.5S<) 단상자","k":"부재료","s":""},{"c":"MP01-0713","n":"알리바바 MBNTL CLASSIC (0.5-1S) 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0714","n":"알리바바 MBNTL CLASSIC (0.5-1S) 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0715","n":"알리바바 MBNTL CLASSIC (0.5-1S) 단상자","k":"부재료","s":""},{"c":"MP01-0716","n":"알리바바 MBNTL CLASSIC (1-2S) 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0717","n":"알리바바 MBNTL CLASSIC (1-2S) 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0718","n":"알리바바 MBNTL CLASSIC (1-2S) 단상자","k":"부재료","s":""},{"c":"MP01-0719","n":"알리바바 MBNTL CLASSIC (2-3S) 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0720","n":"알리바바 MBNTL CLASSIC (2-3S) 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0721","n":"알리바바 MBNTL CLASSIC (2-3S) 단상자","k":"부재료","s":""},{"c":"MP01-0722","n":"알리바바 MBNTL PRO (0.5S<) 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0723","n":"알리바바 MBNTL PRO (0.5S<) 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0724","n":"알리바바 MBNTL PRO (0.5S<) 단상자","k":"부재료","s":""},{"c":"MP01-0725","n":"알리바바 MBNTL PRO (0.5-1S) 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0726","n":"알리바바 MBNTL PRO (0.5-1S) 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0727","n":"알리바바 MBNTL PRO (0.5-1S) 단상자","k":"부재료","s":""},{"c":"MP01-0728","n":"알리바바 MBNTL PRO (1-2S) 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0729","n":"알리바바 MBNTL PRO (1-2S) 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0730","n":"알리바바 MBNTL PRO (1-2S) 단상자","k":"부재료","s":""},{"c":"MP01-0731","n":"알리바바 MBNTL PRO (2-3S) 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0732","n":"알리바바 MBNTL PRO (2-3S) 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0733","n":"알리바바 MBNTL PRO (2-3S) 단상자","k":"부재료","s":""},{"c":"MP01-0750","n":"라몽 펌1제","k":"반제품","s":""},{"c":"MP01-0751","n":"라몽 펌2제 5g","k":"반제품","s":""},{"c":"MP01-0752","n":"라몽 펌 3제 5g","k":"제품","s":""},{"c":"MP01-0753","n":"더빔 펌1제 OEM (EBL) 파우치","k":"부재료","s":""},{"c":"MP01-0754","n":"더빔 펌2제 OEM (EBL) 파우치","k":"부재료","s":""},{"c":"MP01-0755","n":"더빔 펌3제 OEM (EBL) 튜브","k":"부재료","s":""},{"c":"MP01-0756","n":"더빔 펌1제 파우치","k":"부재료","s":""},{"c":"MP01-0757","n":"더빔 펌2제 파우치","k":"부재료","s":""},{"c":"MP01-0758","n":"라몽 OEM V801 스티커라벨 (대진)","k":"반제품","s":""},{"c":"MP01-0759","n":"인터워크코리아 유누꼬 속눈썹접착제 (클리어) 1g 용기","k":"부재료","s":""},{"c":"MP01-0760","n":"인터워크코리아 유누꼬 속눈썹접착제 (클리어) 4g 용기","k":"부재료","s":""},{"c":"MP01-0761","n":"뷰티홀릭 RAPIDE 프리미엄글루 용기 라벨(전면)","k":"부재료","s":""},{"c":"MP01-0762","n":"뷰티홀릭 RAPIDE 프리미엄글루 용기 라벨(후면)","k":"부재료","s":""},{"c":"MP01-0763","n":"뷰티홀릭 RAPIDE 프리미엄글루 파우치 라벨(전면)","k":"부재료","s":""},{"c":"MP01-0764","n":"뷰티홀릭 RAPIDE 프리미엄글루 파우치 라벨(후면)","k":"부재료","s":""},{"c":"MP01-0765","n":"뷰티홀릭 RAPIDE 플러스글루 용기 라벨(전면)","k":"부재료","s":""},{"c":"MP01-0766","n":"뷰티홀릭 RAPIDE 플러스글루 용기 라벨(후면)","k":"부재료","s":""},{"c":"MP01-0767","n":"뷰티홀릭 RAPIDE 플러스글루 파우치 라벨(전면)","k":"부재료","s":""},{"c":"MP01-0768","n":"뷰티홀릭 RAPIDE 플러스글루 파우치 라벨(후면)","k":"부재료","s":""},{"c":"MP01-0769","n":"엘루스고센 크림리무버 용기(사입)","k":"부재료","s":""},{"c":"MP01-0770","n":"엘루스고센 크림리무버 실링지(사입)","k":"부재료","s":""},{"c":"MP01-0771","n":"라몽 ZOOM 펌1제 파우치","k":"부재료","s":""},{"c":"MP01-0772","n":"라몽 ZOOM 펌2제 파우치","k":"부재료","s":""},{"c":"MP01-0773","n":"XYZ Filling Machine Tray","k":"부재료","s":""},{"c":"MP01-0774","n":"Tube Filling Machine Tray","k":"부재료","s":""},{"c":"MP01-0775","n":"센트홀릭 래쉬버터 듀얼 투명+투명 브러시 (중체) (사입)","k":"부재료","s":""},{"c":"MP01-0776","n":"센트홀릭 래쉬버터 듀얼용 투명용기 (사입)","k":"부재료","s":""},{"c":"MP01-0777","n":"센트홀릭 래쉬버터 듀얼용 블랙용기 (사입)","k":"부재료","s":""},{"c":"MP01-0778","n":"라몽OEM 래쉬샴푸 백색용기 (사입)","k":"부재료","s":""},{"c":"MP01-0779","n":"뷰티명가 퓨리에글루 용기라벨 전면","k":"부재료","s":""},{"c":"MP01-0780","n":"뷰티명가 퓨리에글루 용기라벨 후면","k":"부재료","s":""},{"c":"MP01-0781","n":"뷰티명가 퓨리에글루 파우치라벨 전면","k":"부재료","s":""},{"c":"MP01-0782","n":"뷰티명가 퓨리에글루 파우치라벨 후면","k":"부재료","s":""},{"c":"MP01-0783","n":"골드뚜껑+투명용기+솜브러쉬5g(S2T(MGo)-H5","k":"부재료","s":""},{"c":"MP01-0784","n":"라몽 핀셋세척액 스펀지 - 그린 (SP-G02)","k":"부재료","s":""},{"c":"MP01-0785","n":"라몽OEM 래쉬샴푸 투명용기 (사입)","k":"부재료","s":""},{"c":"MP01-0786","n":"백색뚜껑+백색용기+솜브러쉬(백색솔대, 백색노즐) 5g (S1W-H5-DQ)","k":"부재료","s":""},{"c":"MP01-0787","n":"백색뚜껑+백색용기+솜브러쉬(검정솔대, 검정노즐) 5g (S1W-BH5-DQ)","k":"부재료","s":""},{"c":"MP01-0788","n":"센트홀릭 래쉬버터 간지 (듀얼용)","k":"부재료","s":""},{"c":"MP01-0789","n":"젬소 제부미글루(1초) 용기라벨 (사입)","k":"부재료","s":""},{"c":"MP01-0790","n":"젬소 제부미글루(1초) 단상자 (사입)","k":"부재료","s":""},{"c":"MP01-0791","n":"엘씨나인 노몬드 펌 1제 파우치","k":"부재료","s":"0.5g"},{"c":"MP01-0792","n":"엘씨나인 노몬드 펌 2제 파우치","k":"부재료","s":"0.5g"},{"c":"MP01-0793","n":"엘씨나인 노몬드 1초연장글루 파우치","k":"부재료","s":""},{"c":"MP01-0794","n":"MACY 코팅제용기 10g (사입)","k":"부재료","s":""},{"c":"MP01-0795","n":"펌지","k":"부재료","s":""},{"c":"MP01-0796","n":"엘루스고센 COOKIE글루 용기라벨 (전면)","k":"부재료","s":"ea"},{"c":"MP01-0797","n":"엘루스고센 COOKIE글루 용기라벨 (후면)","k":"부재료","s":"ea"},{"c":"MP01-0798","n":"엘루스고센 COOKIE글루 파우치라벨 (전면)","k":"부재료","s":"ea"},{"c":"MP01-0799","n":"엘루스고센 COOKIE글루 파우치라벨 (후면)","k":"부재료","s":"ea"},{"c":"MP01-0800","n":"엘루스고센 LEVER글루 용기라벨 (전면)","k":"부재료","s":"ea"},{"c":"MP01-0801","n":"엘루스고센 LEVER글루 용기라벨 (후면)","k":"부재료","s":"ea"},{"c":"MP01-0802","n":"엘루스고센 LEVER글루 파우치라벨 (전면)","k":"부재료","s":""},{"c":"MP01-0803","n":"엘루스고센 LEVER글루 파우치라벨 (후면)","k":"부재료","s":"ea"},{"c":"MP01-0804","n":"엘루스고센 MOMO글루 용기라벨 (전면)","k":"부재료","s":"ea"},{"c":"MP01-0805","n":"엘루스고센 MOMO글루 용기라벨 (후면)","k":"부재료","s":"ea"},{"c":"MP01-0806","n":"엘루스고센 MOMO글루 파우치라벨 (전면)","k":"부재료","s":"ea"},{"c":"MP01-0807","n":"엘루스고센 MOMO글루 파우치라벨 (후면)","k":"부재료","s":"ea"},{"c":"MP01-0808","n":"검정막힌노즐 (DQB2)","k":"부재료","s":""},{"c":"PP01-MACY","n":"R125-S (15000cps) MACY 색상","k":"원재료","s":""},{"c":"PP01-SA-6","n":"PP01-SA-6","k":"원재료","s":"1kg"}];</script>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect, useMemo, useCallback } = React;
+
+// ---------- 자주 쓰는 문구 프리셋 ----------
+const PRESET_WARN = [
+  "용기오염주의", "캡불량주의", "충진량 확인", "누액주의",
+  "스크레치 주의", "날인표시방법 : 없음", "노즐 막힘 확인"
+];
+const PRESET_INSPECT = [
+  "초,중,종물 검사 (충진량)", "자재확인(용기, 노즐, 캡, 글루핀)",
+  "스크레치, 오염, 충진량", "막힌노즐 확인", "마킹 유무 확인",
+  "라벨 유무 확인", "소박스 포장수량 / 대박스 포장수량"
+];
+const SUBTAGS = ["준비", "검사", "충진", "포장", "밀봉", "적재"];
+const IMG_LABELS = ["1. 충진", "2. 노즐·캡", "3. 마킹", "4. 소박스", "5. 대박스"];
+
+const emptyHeader = () => ({
+  docno: "", date: new Date().toISOString().slice(0, 10), rev: "A/01",
+  work: "", staff: "1", stdqty: "",
+  product: "", productCode: "", productSpec: "",
+  pack: "", packCode: "", spec: "",
+  equip: "", warn: ""
+});
+const sampleProcs = () => [
+  { no: "1", order: "작업전 준비", sub: "준비", content: "작업구역의 청소 및 도구, 재료의 정위치" },
+  { no: "", order: "", sub: "검사", content: "자재확인(용기, 노즐, 캡, 글루핀)" },
+  { no: "2", order: "공정내용", sub: "충진", content: "용기에 충진하고 노즐 및 캡핑" },
+  { no: "3", order: "이상처리", sub: "", content: "용기오염, 스크레치 발생시, 누액시 불량처리" }
+];
+
+// ---------- 품목 검색 드롭다운 ----------
+function ItemLookup({ value, onPick, placeholder, kinds }) {
+  const [q, setQ] = useState(value || "");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const ref = useRef(null);
+  useEffect(() => { setQ(value || ""); }, [value]);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const recents = window.__recentItems || (window.__recentItems = []);
+  const results = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    let pool = window.ITEMS;
+    if (kinds) pool = pool.filter(i => kinds.includes(i.k));
+    if (!s) {
+      const r = recents.filter(i => !kinds || kinds.includes(i.k));
+      return r.slice(0, 8);
+    }
+    return pool.filter(i =>
+      i.n.toLowerCase().includes(s) || i.c.toLowerCase().includes(s)
+    ).slice(0, 40);
+  }, [q, kinds, open]);
+  const pick = (it) => {
+    onPick({ name: it.n, code: it.c, spec: it.s });
+    setQ(it.n); setOpen(false);
+    const arr = window.__recentItems;
+    const idx = arr.findIndex(x => x.c === it.c);
+    if (idx >= 0) arr.splice(idx, 1);
+    arr.unshift(it);
+    if (arr.length > 12) arr.pop();
+  };
+  return (
+    <div className="lookup" ref={ref}>
+      <input type="text" value={q} placeholder={placeholder}
+        onChange={e => { setQ(e.target.value); setOpen(true); setActive(0); onPick({ name: e.target.value, code: "", spec: "" }, true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={e => {
+          if (!open || !results.length) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setActive(a => Math.min(a + 1, results.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActive(a => Math.max(a - 1, 0)); }
+          else if (e.key === "Enter") { e.preventDefault(); const it = results[active]; if (it) pick(it); }
+          else if (e.key === "Escape") setOpen(false);
+        }} />
+      {open && results.length > 0 && (
+        <div className="menu">
+          {!q.trim() && <div className="menu-head">최근 선택</div>}
+          {results.map((it, i) => (
+            <div key={it.c} className={"opt" + (i === active ? " active" : "")}
+              onMouseEnter={() => setActive(i)}
+              onMouseDown={() => pick(it)}>
+              <span className="nm">{it.n}</span>
+              <span className="meta"><span className="kind">{it.k}</span><span>{it.c}</span>{it.s && <span>· {it.s}</span>}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- 메인 앱 ----------
+function App() {
+  const [h, setH] = useState(emptyHeader);
+  const [procs, setProcs] = useState(sampleProcs);
+  const [bom, setBom] = useState([{ name: "", code: "", spec: "" }]);
+  const [imgs, setImgs] = useState([null, null, null, null, null]);
+  const [autoNo, setAutoNo] = useState(true);
+  const [toast, setToast] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [fit, setFit] = useState(true);
+  const [mobileTab, setMobileTab] = useState("form");
+  const loadRef = useRef(null);
+  const previewWrapRef = useRef(null);
+
+  const showToast = (m) => { setToast(m); clearTimeout(window.__t); window.__t = setTimeout(() => setToast(""), 2400); };
+  const markDirty = () => setDirty(true);
+  const upH = (k, v) => { setH(s => ({ ...s, [k]: v })); markDirty(); };
+
+  const applyAutoNo = useCallback((list) => {
+    if (!autoNo) return list;
+    let n = 0;
+    return list.map(r => {
+      if (r.order && r.order.trim()) { n += 1; return { ...r, no: String(n) }; }
+      return { ...r, no: "" };
+    });
+  }, [autoNo]);
+
+  useEffect(() => { if (autoNo) setProcs(p => applyAutoNo(p)); }, [autoNo]);
+
+  const upProc = (i, k, v) => { setProcs(p => { const n = p.map((r, j) => j === i ? { ...r, [k]: v } : r); return k === "order" ? applyAutoNo(n) : n; }); markDirty(); };
+  const addProc = () => { setProcs(p => applyAutoNo([...p, { no: "", order: "", sub: "", content: "" }])); markDirty(); };
+  const rmProc = (i) => { setProcs(p => applyAutoNo(p.filter((_, j) => j !== i))); markDirty(); };
+  const moveProc = (i, dir) => {
+    setProcs(p => {
+      const j = i + dir; if (j < 0 || j >= p.length) return p;
+      const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return applyAutoNo(n);
+    }); markDirty();
+  };
+
+  const upBom = (i, obj) => { setBom(b => b.map((r, j) => j === i ? { ...r, ...obj } : r)); markDirty(); };
+  const addBom = () => { if (bom.length < 10) { setBom(b => [...b, { name: "", code: "", spec: "" }]); markDirty(); } };
+  const rmBom = (i) => { setBom(b => b.filter((_, j) => j !== i)); markDirty(); };
+
+  const fileToData = (file, cb) => { const r = new FileReader(); r.onload = () => cb(r.result); r.readAsDataURL(file); };
+  const setImg = (i, file) => { if (!file) return; fileToData(file, d => { setImgs(a => a.map((x, j) => j === i ? d : x)); markDirty(); }); };
+  const clearImg = (i) => { setImgs(a => a.map((x, j) => j === i ? null : x)); markDirty(); };
+
+  useEffect(() => {
+    const handler = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  const missing = useMemo(() => {
+    const m = [];
+    if (!h.docno.trim()) m.push("문서번호");
+    if (!h.product.trim()) m.push("제품명");
+    if (!h.work.trim()) m.push("작업명");
+    return m;
+  }, [h]);
+
+  const saveJSON = () => {
+    const data = { _type: "macbon-sop", _ver: 1, h, procs, bom, imgs };
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `SOP_${h.product || "무제"}_${h.date}.json`; a.click();
+    setDirty(false);
+    showToast("작업 파일(JSON)을 저장했습니다");
+  };
+  const loadJSON = (file) => {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const d = JSON.parse(r.result);
+        if (d._type !== "macbon-sop") { showToast("맥본 SOP 파일이 아닙니다"); return; }
+        setH({ ...emptyHeader(), ...d.h });
+        setProcs(d.procs && d.procs.length ? d.procs : sampleProcs());
+        setBom(d.bom && d.bom.length ? d.bom : [{ name: "", code: "", spec: "" }]);
+        setImgs(d.imgs && d.imgs.length === 5 ? d.imgs : [null, null, null, null, null]);
+        setDirty(false);
+        showToast("불러오기 완료");
+      } catch (e) { showToast("파일을 읽을 수 없습니다"); }
+    };
+    r.readAsText(file);
+  };
+  const duplicateAsNew = () => {
+    if (dirty && !window.confirm("저장하지 않은 변경사항이 있습니다. 현재 내용을 복제해 새 문서로 이어서 작성할까요?")) return;
+    setH(s => ({ ...s, docno: "", rev: "A/01" }));
+    setDirty(true);
+    showToast("현재 내용을 복제했습니다. 문서번호를 새로 입력하세요");
+  };
+  const resetAll = () => {
+    if (dirty && !window.confirm("저장하지 않은 변경사항이 있습니다. 모두 지우고 새로 시작할까요?")) return;
+    setH(emptyHeader()); setProcs(sampleProcs()); setBom([{ name: "", code: "", spec: "" }]);
+    setImgs([null, null, null, null, null]); setDirty(false);
+    showToast("새 문서를 시작합니다");
+  };
+
+  const zoomIn = () => { setFit(false); setZoom(z => Math.min(z + 0.1, 1.6)); };
+  const zoomOut = () => { setFit(false); setZoom(z => Math.max(z - 0.1, 0.4)); };
+  const fitToScreen = () => { setFit(true); };
+  useEffect(() => {
+    if (!fit) return;
+    const calc = () => {
+      const w = previewWrapRef.current ? previewWrapRef.current.clientWidth - 52 : 1123;
+      setZoom(Math.min(1, w / 1123));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [fit]);
+
+  const confirmExport = (fn) => {
+    if (missing.length && !window.confirm(`다음 필수 항목이 비어 있습니다:\n· ${missing.join("\n· ")}\n\n그래도 내보낼까요?`)) return;
+    fn();
+  };
+
+  const exportExcel = async () => {
+    try {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet(h.product || "작업표준서", { properties: { defaultRowHeight: 18 }, pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 } });
+      for (let c = 1; c <= 29; c++) ws.getColumn(c).width = 3.6;
+      const border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+      const setCell = (addr, val, opts = {}) => {
+        const cell = ws.getCell(addr); cell.value = val;
+        cell.font = { name: "맑은 고딕", size: opts.size || 10, bold: !!opts.bold, color: opts.color ? { argb: opts.color } : undefined };
+        cell.alignment = { vertical: "middle", horizontal: opts.h || "center", wrapText: opts.wrap !== false };
+        cell.border = border;
+        if (opts.fill) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: opts.fill } };
+      };
+      ws.mergeCells("A1:AC1"); setCell("A1", "작업지도서 (SOP)", { size: 16, bold: true }); ws.getRow(1).height = 26;
+      ws.mergeCells("A2:E2"); setCell("A2", "문서번호: " + h.docno, { h: "left", bold: true });
+      ws.mergeCells("F2:T2"); setCell("F2", "");
+      ws.mergeCells("U2:V2"); setCell("U2", "작성일:", { bold: true });
+      ws.mergeCells("W2:Y2"); setCell("W2", h.date);
+      ws.mergeCells("Z2:AA2"); setCell("Z2", "Rev:", { bold: true });
+      ws.mergeCells("AB2:AC2"); setCell("AB2", h.rev);
+      ws.mergeCells("A3:C3"); setCell("A3", "작업명", { fill: "FFF0F0F0", bold: true });
+      ws.mergeCells("D3:I3"); setCell("D3", h.work);
+      ws.mergeCells("J3:L3"); setCell("J3", "인원배치", { fill: "FFF0F0F0", bold: true });
+      ws.mergeCells("M3:N3"); setCell("M3", h.staff);
+      ws.mergeCells("O3:Q3"); setCell("O3", "표준생산량", { fill: "FFF0F0F0", bold: true });
+      ws.mergeCells("R3:S3"); setCell("R3", h.stdqty);
+      ws.mergeCells("T3:U5"); setCell("T3", "주의사항", { fill: "FFF0F0F0", bold: true });
+      ws.mergeCells("V3:AC5"); setCell("V3", h.warn, { h: "left", size: 9 });
+      ws.mergeCells("A4:C4"); setCell("A4", "제품명/모델명", { fill: "FFF0F0F0", bold: true });
+      ws.mergeCells("D4:I4"); setCell("D4", h.product + (h.productSpec ? " " + h.productSpec : ""));
+      ws.mergeCells("J4:L4"); setCell("J4", "포장재명/모델명", { fill: "FFF0F0F0", bold: true });
+      ws.mergeCells("M4:N4"); setCell("M4", h.pack);
+      ws.mergeCells("O4:Q4"); setCell("O4", "규격", { fill: "FFF0F0F0", bold: true });
+      ws.mergeCells("R4:S4"); setCell("R4", h.spec);
+      ws.mergeCells("A5:C5"); setCell("A5", "설비 및 공치구", { fill: "FFF0F0F0", bold: true });
+      ws.mergeCells("D5:S5"); setCell("D5", h.equip, { h: "left" });
+      const ph = 6;
+      setCell(`A${ph}`, "No.", { fill: "FFE8E8E8", bold: true });
+      ws.mergeCells(`B${ph}:D${ph}`); setCell(`B${ph}`, "작업순서", { fill: "FFE8E8E8", bold: true });
+      ws.mergeCells(`E${ph}:F${ph}`); setCell(`E${ph}`, "구분", { fill: "FFE8E8E8", bold: true });
+      ws.mergeCells(`G${ph}:N${ph}`); setCell(`G${ph}`, "작업표준 및 검사", { fill: "FFE8E8E8", bold: true });
+      ws.mergeCells(`O${ph}:AC${ph}`); setCell(`O${ph}`, "작업 예시도", { fill: "FFE8E8E8", bold: true });
+      let r = ph + 1;
+      procs.forEach(p => {
+        ws.getRow(r).height = 22;
+        setCell(`A${r}`, p.no);
+        ws.mergeCells(`B${r}:D${r}`); setCell(`B${r}`, p.order, { h: "left" });
+        ws.mergeCells(`E${r}:F${r}`); setCell(`E${r}`, p.sub);
+        ws.mergeCells(`G${r}:N${r}`); setCell(`G${r}`, p.content, { h: "left", size: 9 });
+        r++;
+      });
+      let imgRow = r + 1;
+      ws.mergeCells(`A${imgRow}:AC${imgRow}`); setCell(`A${imgRow}`, "■ 작업 예시도", { fill: "FFF0F0F0", bold: true, h: "left" });
+      imgRow++;
+      const labelRow = imgRow;
+      const spans = [[1, 6], [7, 12], [13, 18], [19, 23], [24, 29]];
+      spans.forEach((sp, i) => {
+        const c1 = ws.getColumn(sp[0]).letter, c2 = ws.getColumn(sp[1]).letter;
+        ws.mergeCells(`${c1}${labelRow}:${c2}${labelRow}`);
+        setCell(`${c1}${labelRow}`, IMG_LABELS[i], { fill: "FFEEF4F2", bold: true, size: 9 });
+      });
+      const picRow = labelRow + 1;
+      for (let k = picRow; k < picRow + 6; k++) ws.getRow(k).height = 20;
+      spans.forEach((sp, i) => {
+        const c1 = ws.getColumn(sp[0]).letter;
+        ws.mergeCells(`${c1}${picRow}:${ws.getColumn(sp[1]).letter}${picRow + 5}`);
+        ws.getCell(`${c1}${picRow}`).border = border;
+        if (imgs[i]) {
+          const ext = imgs[i].substring(11, imgs[i].indexOf(";"));
+          const imgId = wb.addImage({ base64: imgs[i], extension: (ext === "jpeg" ? "jpeg" : "png") });
+          ws.addImage(imgId, { tl: { col: sp[0] - 1, row: picRow - 1 }, br: { col: sp[1], row: picRow + 5 }, editAs: "oneCell" });
+        }
+      });
+      let bomRow = picRow + 6 + 1;
+      const rows = bom.filter(b => b.name).length > 5 ? 1 : 0;
+      ws.mergeCells(`A${bomRow}:A${bomRow + rows}`);
+      setCell(`A${bomRow}`, "BOM", { fill: "FF333333", color: "FFFFFFFF", bold: true });
+      const bomItems = bom.filter(b => b.name);
+      bomItems.forEach((b, idx) => {
+        const rr = bomRow + Math.floor(idx / 5);
+        const col = 2 + (idx % 5) * 5;
+        const c1 = ws.getColumn(col).letter;
+        const nc = ws.getCell(`${c1}${rr}`); nc.value = idx + 1;
+        nc.font = { name: "맑은 고딕", size: 9, bold: true }; nc.border = border; nc.alignment = { horizontal: "center", vertical: "middle" };
+        ws.mergeCells(`${ws.getColumn(col + 1).letter}${rr}:${ws.getColumn(col + 4).letter}${rr}`);
+        const bc = ws.getCell(`${ws.getColumn(col + 1).letter}${rr}`);
+        bc.value = b.name + (b.spec ? ` (${b.spec})` : "");
+        bc.font = { name: "맑은 고딕", size: 9 }; bc.border = border; bc.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+      });
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = `작업표준서_${h.product || "무제"}_${h.date}.xlsx`; a.click();
+      showToast("Excel 파일을 내보냈습니다");
+    } catch (e) { console.error(e); showToast("Excel 내보내기 오류: " + e.message); }
+  };
+
+  const exportPDF = () => { showToast("인쇄 창에서 'PDF로 저장'을 선택하세요"); setTimeout(() => window.print(), 400); };
+
+  const Preview = () => (
+    <div className="sheet" id="sheet">
+      <table className="sop">
+        <colgroup>{Array.from({ length: 29 }).map((_, i) => <col key={i} style={{ width: (100 / 29) + "%" }} />)}</colgroup>
+        <tbody>
+          <tr><td className="title" colSpan={29}>작업지도서 (SOP)</td></tr>
+          <tr>
+            <td className="lbl lft" colSpan={9}>문서번호: {h.docno || <span className="empty-hint">미입력</span>}</td>
+            <td colSpan={10}></td>
+            <td className="lbl" colSpan={3}>작성일</td>
+            <td colSpan={3}>{h.date}</td>
+            <td className="lbl" colSpan={2}>Rev</td>
+            <td colSpan={2}>{h.rev}</td>
+          </tr>
+          <tr>
+            <td className="lbl" colSpan={3}>작업명</td>
+            <td className="lft" colSpan={6}>{h.work || <span className="empty-hint">미입력</span>}</td>
+            <td className="lbl" colSpan={3}>인원배치</td>
+            <td colSpan={2}>{h.staff}</td>
+            <td className="lbl" colSpan={3}>표준생산량</td>
+            <td colSpan={2}>{h.stdqty}</td>
+            <td className="lbl" colSpan={2} rowSpan={3}>주의사항</td>
+            <td className="warn-cell" colSpan={8} rowSpan={3}>{h.warn || <span className="empty-hint">주의사항 입력</span>}</td>
+          </tr>
+          <tr>
+            <td className="lbl" colSpan={3}>제품명/모델명</td>
+            <td className="lft" colSpan={6}>{h.product ? (h.product + (h.productSpec ? ` ${h.productSpec}` : "")) : <span className="empty-hint">미입력</span>}</td>
+            <td className="lbl" colSpan={3}>포장재명/모델명</td>
+            <td colSpan={2}>{h.pack}</td>
+            <td className="lbl" colSpan={3}>규격</td>
+            <td colSpan={2}>{h.spec}</td>
+          </tr>
+          <tr>
+            <td className="lbl" colSpan={3}>설비 및 공치구</td>
+            <td className="lft" colSpan={16}>{h.equip}</td>
+          </tr>
+          <tr className="proc-head">
+            <td colSpan={1}>No.</td>
+            <td colSpan={3}>작업순서</td>
+            <td colSpan={2}>구분</td>
+            <td colSpan={13}>작업표준 및 검사</td>
+            <td colSpan={10} rowSpan={Math.max(procs.length + 1, 6)}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px", height: "100%", padding: "2px" }}>
+                {IMG_LABELS.map((lab, i) => (
+                  <div key={i} className="imgcell" style={{ border: "1px solid #000", minHeight: "70px" }}>
+                    <div className="cp">{lab}</div>
+                    {imgs[i]
+                      ? <img src={imgs[i]} alt={lab} style={{ marginTop: "14px" }} />
+                      : <div className="ph">사진 없음</div>}
+                  </div>
+                ))}
+              </div>
+            </td>
+          </tr>
+          {procs.map((p, i) => (
+            <tr key={i}>
+              <td colSpan={1}>{p.no}</td>
+              <td className="lft" colSpan={3}>{p.order}</td>
+              <td colSpan={2}>{p.sub}</td>
+              <td className="proc-content" colSpan={13}>{p.content}</td>
+            </tr>
+          ))}
+          <tr>
+            <td className="bom-lbl" colSpan={1}>BOM</td>
+            <td colSpan={28} style={{ padding: "4px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: "4px" }}>
+                {bom.filter(b => b.name).length === 0
+                  ? <span className="empty-hint">부자재 미입력</span>
+                  : bom.filter(b => b.name).map((b, i) => (
+                    <div key={i} style={{ display: "flex", gap: "4px", alignItems: "center", fontSize: "10px" }}>
+                      <b>{i + 1}</b><span>{b.name}{b.spec ? ` (${b.spec})` : ""}</span>
+                    </div>
+                  ))}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const previewPane = (
+    <div className="previewwrap" ref={previewWrapRef}>
+      <div className="pv-tools">
+        <div className="pv-left"><span className="dot"></span> 실시간 미리보기 · A4 가로</div>
+        <div className="pv-zoom">
+          <button className="zbtn" onClick={zoomOut} title="축소">−</button>
+          <span className="zlvl">{Math.round(zoom * 100)}%</span>
+          <button className="zbtn" onClick={zoomIn} title="확대">+</button>
+          <button className={"zbtn wide" + (fit ? " on" : "")} onClick={fitToScreen} title="화면에 맞춤">맞춤</button>
+        </div>
+      </div>
+      <div className="sheet-scale-outer">
+        <div className="sheet-scale" style={{ transform: `scale(${zoom})`, width: 1123 * zoom }}>
+          <Preview />
+        </div>
+      </div>
+    </div>
+  );
+
+  const formPane = (
+    <div className="panel">
+      <div className="brand">
+        <div className="brand-row">
+          <h1><span className="tag">SOP</span> 맥본 작업표준서 생성기</h1>
+          {dirty && <span className="unsaved">● 저장 안 됨</span>}
+        </div>
+        <div className="toolbar">
+          <button className="btn sm" onClick={resetAll}>＋ 새 문서</button>
+          <button className="btn sm" onClick={duplicateAsNew}>⧉ 복제</button>
+          <button className="btn sm" onClick={() => loadRef.current.click()}>📂 불러오기</button>
+          <button className="btn sm pri" onClick={saveJSON}>💾 저장</button>
+          <input ref={loadRef} type="file" accept="application/json,.json" style={{ display: "none" }}
+            onChange={e => { const f = e.target.files[0]; if (f) loadJSON(f); e.target.value = ""; }} />
+        </div>
+      </div>
+
+      <div className="sect">
+        <h2><span className="n">1</span> 기본 정보</h2>
+        <div className="grid3">
+          <div className="field"><label>문서번호 <b className="req">*</b></label><input className={!h.docno ? "warn-empty" : ""} type="text" value={h.docno} onChange={e => upH("docno", e.target.value)} placeholder="예: WI-2026-001" /></div>
+          <div className="field"><label>작성일</label><input type="date" value={h.date} onChange={e => upH("date", e.target.value)} /></div>
+          <div className="field"><label>Rev</label><input type="text" value={h.rev} onChange={e => upH("rev", e.target.value)} /></div>
+        </div>
+        <div className="grid3">
+          <div className="field"><label>작업명 <b className="req">*</b></label><input className={!h.work ? "warn-empty" : ""} type="text" value={h.work} onChange={e => upH("work", e.target.value)} placeholder="예: 글루 충진/포장" /></div>
+          <div className="field"><label>인원배치</label><input type="text" value={h.staff} onChange={e => upH("staff", e.target.value)} /></div>
+          <div className="field"><label>표준생산량</label><input type="text" value={h.stdqty} onChange={e => upH("stdqty", e.target.value)} placeholder="예: 2020" /></div>
+        </div>
+      </div>
+
+      <div className="sect">
+        <h2><span className="n">2</span> 제품 / 포장재</h2>
+        <div className="field"><label>제품명 / 모델명 (품목 검색) <b className="req">*</b></label>
+          <ItemLookup value={h.product} placeholder="제품명·코드 검색" kinds={["제품", "반제품", "상품"]}
+            onPick={(it) => { setH(s => ({ ...s, product: it.name, productCode: it.code, productSpec: it.spec })); markDirty(); }} />
+        </div>
+        <div className="grid2">
+          <div className="field"><label>포장재명 / 모델명</label>
+            <ItemLookup value={h.pack} placeholder="포장재 검색" kinds={["부재료", "원재료"]}
+              onPick={(it) => { setH(s => ({ ...s, pack: it.name, packCode: it.code })); markDirty(); }} />
+          </div>
+          <div className="field"><label>규격</label><input type="text" value={h.spec} onChange={e => upH("spec", e.target.value)} placeholder="예: 5g" /></div>
+        </div>
+        <div className="field full"><label>설비 및 공치구</label><input type="text" value={h.equip} onChange={e => upH("equip", e.target.value)} placeholder="사용 설비/지그" /></div>
+        <div className="field full"><label>주의사항</label>
+          <textarea value={h.warn} onChange={e => upH("warn", e.target.value)} placeholder="줄바꿈으로 항목 구분" />
+          <div className="chips">{PRESET_WARN.map(w => (
+            <span key={w} className="chip" onClick={() => upH("warn", h.warn ? h.warn + "\n" + w : w)}>+ {w}</span>
+          ))}</div>
+        </div>
+      </div>
+
+      <div className="sect">
+        <div className="sect-head">
+          <h2><span className="n">3</span> 작업 순서</h2>
+          <label className="toggle"><input type="checkbox" checked={autoNo} onChange={e => setAutoNo(e.target.checked)} /> No. 자동</label>
+        </div>
+        {procs.map((p, i) => (
+          <div className="rowcard" key={i}>
+            <div className="top">
+              <span className="lab">{p.no ? `${p.no}.` : "─"} {p.order || "작업"}</span>
+              <div className="rowbtns">
+                <button className="btn xs" disabled={i === 0} onClick={() => moveProc(i, -1)} title="위로">↑</button>
+                <button className="btn xs" disabled={i === procs.length - 1} onClick={() => moveProc(i, 1)} title="아래로">↓</button>
+                <button className="btn xs danger" onClick={() => rmProc(i)} title="삭제">✕</button>
+              </div>
+            </div>
+            <div className="grid2">
+              <div className="field"><label>No. {autoNo && <span className="mini">(자동)</span>}</label><input type="text" value={p.no} disabled={autoNo} onChange={e => upProc(i, "no", e.target.value)} placeholder="1" /></div>
+              <div className="field"><label>작업순서</label><input type="text" value={p.order} onChange={e => upProc(i, "order", e.target.value)} placeholder="작업전 준비" /></div>
+            </div>
+            <div className="field"><label>구분</label>
+              <div className="tagpick">{SUBTAGS.map(t => (
+                <span key={t} className={"t" + (p.sub === t ? " on" : "")} onClick={() => upProc(i, "sub", p.sub === t ? "" : t)}>{t}</span>
+              ))}</div>
+            </div>
+            <div className="field"><label>작업표준 및 검사</label>
+              <textarea value={p.content} onChange={e => upProc(i, "content", e.target.value)} placeholder="작업 내용 / 검사 기준" />
+              <div className="chips">{PRESET_INSPECT.map(w => (
+                <span key={w} className="chip" onClick={() => upProc(i, "content", p.content ? p.content + "\n" + w : w)}>+ {w}</span>
+              ))}</div>
+            </div>
+          </div>
+        ))}
+        <button className="btn ghost" onClick={addProc}>+ 작업 순서 추가</button>
+      </div>
+
+      <div className="sect">
+        <h2><span className="n">4</span> BOM (부자재)</h2>
+        {bom.map((b, i) => (
+          <div className="rowcard slim" key={i}>
+            <div className="bom-row">
+              <span className="bom-idx">{i + 1}</span>
+              <div className="bom-lookup">
+                <ItemLookup value={b.name} placeholder="캡·용기·노즐 등 검색"
+                  onPick={(it) => upBom(i, { name: it.name, code: it.code, spec: it.spec })} />
+                {b.code && <div className="bom-meta">코드 {b.code}{b.spec ? ` · 규격 ${b.spec}` : ""}</div>}
+              </div>
+              <button className="btn xs danger" onClick={() => rmBom(i)} title="삭제">✕</button>
+            </div>
+          </div>
+        ))}
+        {bom.length < 10 && <button className="btn ghost" onClick={addBom}>+ 부자재 추가 (최대 10)</button>}
+      </div>
+
+      <div className="sect">
+        <h2><span className="n">5</span> 작업 예시도 (사진)</h2>
+        <div className="imgslots">
+          {IMG_LABELS.map((lab, i) => (
+            <ImgSlot key={i} label={lab} data={imgs[i]} onFile={f => setImg(i, f)} onClear={() => clearImg(i)} />
+          ))}
+        </div>
+      </div>
+
+      <div className="exportbar">
+        <button className="btn" onClick={() => confirmExport(exportPDF)}>📄 PDF</button>
+        <button className="btn pri" onClick={() => confirmExport(exportExcel)}>📊 Excel</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={"app tab-" + mobileTab}>
+      <div className="mobile-tabs">
+        <button className={mobileTab === "form" ? "on" : ""} onClick={() => setMobileTab("form")}>✏️ 입력</button>
+        <button className={mobileTab === "preview" ? "on" : ""} onClick={() => setMobileTab("preview")}>👁 미리보기</button>
+      </div>
+      {formPane}
+      {previewPane}
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+function ImgSlot({ label, data, onFile, onClear }) {
+  const [drag, setDrag] = useState(false);
+  const ref = useRef();
+  return (
+    <div className={"slot" + (drag ? " drag" : "") + (data ? " has" : "")}
+      onClick={() => ref.current.click()}
+      onDragOver={e => { e.preventDefault(); setDrag(true); }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={e => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}>
+      {data ? <>
+        <img src={data} alt={label} />
+        <button className="rm" onClick={e => { e.stopPropagation(); onClear(); }}>✕</button>
+        <div className="cap">{label}</div>
+      </> : <>
+        <div className="lab">{label}</div>
+        <div className="hint">클릭·드래그로 사진 추가</div>
+      </>}
+      <input ref={ref} type="file" accept="image/*" style={{ display: "none" }}
+        onChange={e => { const f = e.target.files[0]; if (f) onFile(f); e.target.value = ""; }} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+</script>
+</body>
+</html>
