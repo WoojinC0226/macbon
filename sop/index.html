@@ -594,12 +594,28 @@ function App() {
   const exportExcel = async () => {
     try {
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet(h.product || "작업표준서", { properties: { defaultRowHeight: 18 }, pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 } });
-      for (let c = 1; c <= 29; c++) ws.getColumn(c).width = 4.2;
+      const ws = wb.addWorksheet(h.product || "작업표준서", {
+        properties: { defaultRowHeight: 16, defaultColWidth: 4.6 },
+        pageSetup: {
+          paperSize: 9,              // A4
+          orientation: "landscape",
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 1,            // 세로도 1페이지에 맞춤
+          scale: 60,                 // 축소 인쇄 (원본과 동일 계열)
+          margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+          horizontalCentered: true
+        }
+      });
+      // 열 번호 → 엑셀 문자 (순수 함수, 열 객체 생성 안 함)
+      const COL = (n) => { let s = ""; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+      // 열 너비를 데이터 입력 전에 명시 고정
+      for (let c = 1; c <= 29; c++) { ws.getColumn(c).width = (c === 1 ? 4.5 : 4.6); }
+      // 인쇄 영역은 데이터 생성 후 마지막에 지정
       const border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
       const setCell = (addr, val, opts = {}) => {
         const cell = ws.getCell(addr); cell.value = val;
-        cell.font = { name: "맑은 고딕", size: opts.size || 10, bold: !!opts.bold, color: opts.color ? { argb: opts.color } : undefined };
+        cell.font = { name: "맑은 고딕", size: opts.size || 9, bold: !!opts.bold, color: opts.color ? { argb: opts.color } : undefined };
         cell.alignment = { vertical: "middle", horizontal: opts.h || "center", wrapText: opts.wrap !== false };
         cell.border = border;
         if (opts.fill) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: opts.fill } };
@@ -635,31 +651,33 @@ function App() {
       ws.mergeCells("R4:S4"); setCell("R4", h.spec);
       ws.mergeCells("A5:C5"); lbl("A5", "설비 및 공치구", { fill: "FFF0F0F0", bold: true });
       ws.mergeCells("D5:S5"); valbi("D5", h.equip, { h: "left" });
-      // 병합 셀 폭(열 수)과 텍스트로 필요한 행 높이(pt) 추정
-      const estRowHeight = (text, colCount, fontSize = 10) => {
-        if (!text) return 22;
-        // 한 열(width 3.6) ≈ 문자 3.6개 폭, 한자·한글은 폭 2배로 계산
-        const charsPerLine = Math.max(6, colCount * 3.4 / (fontSize >= 10 ? 1.5 : 1.3));
+      // 병합 셀 폭(열 수)과 텍스트로 필요한 행 높이(pt) 정밀 추정
+      // ExcelJS가 병합열에 실제 부여하는 너비(≈13)를 기준으로 계산
+      const COLW = 13;
+      const estRowHeight = (text, colCount, fontSize = 9) => {
+        if (!text) return 20;
+        const capHalf = colCount * COLW - 3;           // 셀 안 반각 수용량(패딩 여유)
         let lines = 0;
         String(text).split("\n").forEach(seg => {
-          const w = [...seg].reduce((a, ch) => a + (/[\x00-\xff]/.test(ch) ? 1 : 2), 0) / 2;
-          lines += Math.max(1, Math.ceil(w / charsPerLine));
+          const halfWidth = [...seg].reduce((a, ch) => a + (/[\x00-\xff]/.test(ch) ? 1 : 2), 0);
+          lines += Math.max(1, Math.ceil(halfWidth / Math.max(10, capHalf)));
         });
-        return Math.max(22, lines * (fontSize >= 10 ? 15 : 13.5) + 8);
+        const lineH = fontSize >= 10 ? 14.5 : 13;
+        return Math.max(20, lines * lineH + 6);
       };
       // 헤더 정보 행(3,4) 높이 — 값 병기로 2줄 이상 될 수 있음
       [3, 4, 5].forEach(rn => {
-        const texts = [];
-        if (rn === 3) { texts.push(h.work, h.warn); }
-        if (rn === 4) { texts.push(h.product + (h.productSpec || ""), h.pack); }
-        if (rn === 5) { texts.push(h.equip); }
-        let maxH = zhOn ? 34 : 22;
-        texts.forEach(t => { maxH = Math.max(maxH, estRowHeight(t, 6, 10)); });
-        // 주의사항은 T3:AC5 세로 병합(3줄분)이라 별도 반영
-        ws.getRow(rn).height = Math.min(maxH, rn === 3 ? 60 : 48);
+        const pairs = [];
+        if (rn === 3) { pairs.push([h.work, 6]); }                              // D3:I3 = 6칸
+        if (rn === 4) { pairs.push([h.product + (h.productSpec || ""), 6]); }    // D4:I4 = 6칸
+        if (rn === 5) { pairs.push([h.equip, 16]); }                            // D5:S5 = 16칸
+        let maxH = zhOn ? 30 : 20;
+        pairs.forEach(([t, cc]) => { const zt = zhOn ? (t + "\n" + (zof(t) || "")) : t; maxH = Math.max(maxH, estRowHeight(zt, cc, 9)); });
+        ws.getRow(rn).height = Math.min(maxH, 54);
       });
 
       const ph = 6;
+      ws.getRow(ph).height = zhOn ? 30 : 18;   // 병기 2줄 수용
       setCell(`A${ph}`, "No.", { fill: "FFE8E8E8", bold: true });
       ws.mergeCells(`B${ph}:D${ph}`); lbl(`B${ph}`, "작업순서", { fill: "FFE8E8E8", bold: true });
       ws.mergeCells(`E${ph}:F${ph}`); lbl(`E${ph}`, "구분", { fill: "FFE8E8E8", bold: true });
@@ -671,8 +689,8 @@ function App() {
         const contentText = zhOn ? (p.content + "\n" + (zof(p.content) || "")) : p.content;
         const orderText = zhOn ? (p.order + "\n" + (zof(p.order) || "")) : p.order;
         const hC = estRowHeight(contentText, 8, 9);
-        const hO = estRowHeight(orderText, 3, 10);
-        ws.getRow(r).height = Math.min(Math.max(hC, hO, zhOn ? 30 : 22), 120);
+        const hO = estRowHeight(orderText, 3, 9);
+        ws.getRow(r).height = Math.min(Math.max(hC, hO, zhOn ? 28 : 20), 110);
         setCell(`A${r}`, p.no);
         ws.mergeCells(`B${r}:D${r}`); valbi(`B${r}`, p.order, { h: "left" });
         ws.mergeCells(`E${r}:F${r}`); setCell(`E${r}`, p.sub ? (zhOn && tz(p.sub) ? `${p.sub}\n${tz(p.sub)}` : p.sub) : "", { wrap: true });
@@ -685,15 +703,15 @@ function App() {
       const labelRow = imgRow;
       const spans = [[1, 6], [7, 12], [13, 18], [19, 23], [24, 29]];
       spans.forEach((sp, i) => {
-        const c1 = ws.getColumn(sp[0]).letter, c2 = ws.getColumn(sp[1]).letter;
+        const c1 = COL(sp[0]), c2 = COL(sp[1]);
         ws.mergeCells(`${c1}${labelRow}:${c2}${labelRow}`);
         setCell(`${c1}${labelRow}`, zhOn && tz(IMG_LABELS[i]) ? `${IMG_LABELS[i]} / ${tz(IMG_LABELS[i])}` : IMG_LABELS[i], { fill: "FFEEF4F2", bold: true, size: 9 });
       });
       const picRow = labelRow + 1;
       for (let k = picRow; k < picRow + 6; k++) ws.getRow(k).height = 20;
       spans.forEach((sp, i) => {
-        const c1 = ws.getColumn(sp[0]).letter;
-        ws.mergeCells(`${c1}${picRow}:${ws.getColumn(sp[1]).letter}${picRow + 5}`);
+        const c1 = COL(sp[0]);
+        ws.mergeCells(`${c1}${picRow}:${COL(sp[1])}${picRow + 5}`);
         ws.getCell(`${c1}${picRow}`).border = border;
         if (imgs[i]) {
           const ext = imgs[i].substring(11, imgs[i].indexOf(";"));
@@ -715,20 +733,24 @@ function App() {
         const w = [...txt].reduce((a, ch) => a + (/[\x00-\xff]/.test(ch) ? 1 : 2), 0);
         rowMaxLen[rr] = Math.max(rowMaxLen[rr] || 0, w);
         const colStart = 2 + (idx % perRow) * 7; // 번호1 + 내용6 = 7칸 간격
-        const c1 = ws.getColumn(colStart).letter;
+        const c1 = COL(colStart);
         const nc = ws.getCell(`${c1}${rr}`); nc.value = idx + 1;
         nc.font = { name: "맑은 고딕", size: 9, bold: true }; nc.border = border; nc.alignment = { horizontal: "center", vertical: "middle" };
-        ws.mergeCells(`${ws.getColumn(colStart + 1).letter}${rr}:${ws.getColumn(colStart + 6).letter}${rr}`);
-        const bc = ws.getCell(`${ws.getColumn(colStart + 1).letter}${rr}`);
+        ws.mergeCells(`${COL(colStart + 1)}${rr}:${COL(colStart + 6)}${rr}`);
+        const bc = ws.getCell(`${COL(colStart + 1)}${rr}`);
         bc.value = txt;
         bc.font = { name: "맑은 고딕", size: 9 }; bc.border = border; bc.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
       });
       for (let li = 0; li < bomLines; li++) {
         const rr = bomRow + li;
         const w = rowMaxLen[rr] || 10;
-        const lines = Math.max(1, Math.ceil((w / 2) / 20));  // 내용 6칸 ≈ 20자
-        ws.getRow(rr).height = Math.max(20, lines * 14 + 6);
+        // 내용 6칸 × 13 ≈ 반각 70 수용
+        const lines = Math.max(1, Math.ceil(w / 68));
+        ws.getRow(rr).height = Math.max(18, lines * 13 + 5);
       }
+      // 인쇄 영역 지정 (A1 ~ 마지막 BOM 행) — 한 페이지 인쇄 보장
+      const lastRow = bomRow + bomLines - 1;
+      ws.pageSetup.printArea = `A1:AC${lastRow}`;
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
