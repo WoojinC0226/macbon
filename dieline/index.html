@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>단상자 도면 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --panel:#fbfbfc; --line:#e3e6ea; --line2:#eef0f3;
+  --tx:#171c21; --mut:#6d7681; --paper:#ffffff; --grid:#edf0f3;
+  --cut:#101418; --crease:#d63b2f; --dim:#3d7ea6; --warn:#b57614;
+  --sans:'IBM Plex Sans KR',-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none !important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13.5px;line-height:1.5;
+  display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+
+header{display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--bg)}
+.brand{padding:11px 18px;display:flex;align-items:baseline;gap:10px;border-right:1px solid var(--line)}
+.brand h1{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.brand span{font-family:var(--mono);font-size:10.5px;color:var(--mut)}
+.meta{padding:8px 16px;flex:1;display:flex;flex-direction:column;justify-content:center}
+.meta b{font-weight:500;font-size:13px}
+.meta i{font-family:var(--mono);font-size:10px;color:var(--mut);font-style:normal}
+
+main{display:grid;grid-template-columns:276px 1fr;min-height:0}
+aside{border-right:1px solid var(--line);overflow-y:auto;background:var(--panel);scrollbar-width:thin}
+.grp{border-bottom:1px solid var(--line);padding:14px 16px}
+.grp>h2{font-size:11.5px;font-weight:600;color:var(--mut);margin-bottom:10px}
+.field{display:grid;grid-template-columns:1fr 74px;align-items:center;gap:8px;margin-bottom:7px}
+.field label{font-size:12.5px}
+.field label em{font-family:var(--mono);font-style:normal;color:var(--mut);font-size:11px;margin-left:5px}
+.field input{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:5px 7px;
+  font-family:var(--mono);font-size:12px;text-align:right;width:100%}
+.field input:focus{outline:none;border-color:var(--crease)}
+.pcat{margin-bottom:11px}
+.pcat:last-child{margin-bottom:0}
+.pcat h3{font-size:12px;font-weight:500;margin-bottom:5px}
+.prow{display:flex;flex-wrap:wrap;gap:5px}
+.prow button{background:var(--bg);border:1px solid var(--line);border-radius:3px;
+  padding:4px 10px;font-size:11.5px;cursor:pointer;font-family:var(--mono)}
+.prow button:hover{border-color:var(--crease)}
+.prow button[aria-pressed=true]{background:var(--crease);border-color:var(--crease);color:#fff}
+.pinfo{margin-top:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--line);
+  border-radius:3px;font-size:11.5px;color:var(--mut);line-height:1.55}
+.pinfo b{color:var(--tx);font-weight:500}
+.pinfo em{font-style:normal;color:var(--warn)}
+.checks{display:flex;flex-wrap:wrap;gap:4px 12px}
+.checks label{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer}
+.toggle{display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;margin-top:7px}
+.toggle input{accent-color:var(--crease)}
+.checks input{accent-color:var(--crease)}
+.exp{display:grid;gap:6px}
+.exp button{background:var(--crease);border:0;border-radius:3px;padding:8px;font-weight:500;
+  cursor:pointer;color:#fff}
+.exp button.alt{background:var(--bg);border:1px solid var(--line);color:var(--tx)}
+.exp button:hover{filter:brightness(1.06)}
+.hint{font-size:11px;color:var(--mut);margin-top:8px;line-height:1.45}
+
+.stage{position:relative;background:var(--paper);overflow:hidden}
+#svg{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#svg.drag{cursor:grabbing}
+.viewtab{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;
+  border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--bg)}
+.viewtab button{background:var(--bg);border:0;padding:5px 14px;font-size:12px;cursor:pointer;color:var(--mut)}
+.viewtab button[aria-pressed=true]{background:var(--crease);color:#fff}
+#three{position:absolute;inset:0}
+#three canvas{display:block;width:100%;height:100%}
+.folder{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;display:flex;
+  align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);
+  border-radius:5px;padding:7px 13px}
+.folder input[type=range]{width:min(46vw,320px);accent-color:var(--crease)}
+.folder output{font-family:var(--mono);font-size:11.5px;color:var(--mut);min-width:52px}
+.folder button{background:var(--crease);color:#fff;border:0;border-radius:3px;padding:4px 11px;
+  font-size:11.5px;cursor:pointer}
+.tools{position:absolute;top:12px;right:12px;display:flex;gap:5px}
+.tools button{background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:3px;
+  padding:5px 10px;font-size:11.5px;cursor:pointer;font-family:var(--mono)}
+.tools button:hover{border-color:var(--crease)}
+.legend{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.92);
+  border:1px solid var(--line);border-radius:3px;padding:7px 10px;display:flex;gap:14px;font-size:11.5px}
+.legend i{display:inline-block;width:16px;height:0;vertical-align:middle;margin-right:5px}
+.alerts{position:absolute;left:12px;bottom:12px;max-width:min(430px,62%);display:grid;gap:5px}
+.alert{background:#fdf6e7;border-left:3px solid var(--warn);color:#6b4a0c;
+  padding:7px 10px;font-size:12px;border-radius:0 3px 3px 0}
+.alert.bad{background:#fdeeec;border-color:var(--crease);color:#8c231a}
+
+footer{border-top:1px solid var(--line);background:var(--panel);display:flex;
+  overflow-x:auto;scrollbar-width:thin}
+.stat{padding:9px 16px;border-right:1px solid var(--line);white-space:nowrap}
+.stat dt{font-size:10.5px;color:var(--mut);margin-bottom:1px}
+.stat dd{font-family:var(--mono);font-size:13px}
+.stat dd small{color:var(--mut);font-size:10.5px}
+
+@media(max-width:820px){
+  main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
+  .stage{order:-1;min-height:42vh}
+  aside{border-right:0;border-top:1px solid var(--line);max-height:48vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><h1>단상자 도면 생성기</h1><span>dieline studio</span></div>
+  <div class="meta"><b>리버스 턱 엔드</b><i>ECMA A20.20.03.01</i></div>
+</header>
+
+<main>
+  <aside>
+    <div class="grp">
+      <h2>제품 프리셋</h2>
+      <div id="presets"></div>
+      <div class="pinfo" id="pinfo"></div>
+    </div>
+    <div class="grp">
+      <h2>외경 치수 (mm)</h2>
+      <div id="dims"></div>
+    </div>
+    <div class="grp">
+      <h2>구조 파라미터</h2>
+      <div id="opts"></div>
+    </div>
+    <div class="grp">
+      <h2>표시</h2>
+      <div class="checks">
+        <label><input type="checkbox" id="cbCrease" checked>오시선</label>
+        <label><input type="checkbox" id="cbDim" checked>치수</label>
+        <label><input type="checkbox" id="cbLabel" checked>판넬명</label>
+        <label><input type="checkbox" id="cbGrid">10mm 그리드</label>
+      </div>
+    </div>
+    <div class="grp">
+      <h2>내보내기</h2>
+      <div class="exp">
+        <button id="btnAi">일러스트레이터 (.ai)</button>
+        <button class="alt" id="btnDxf">DXF 내려받기</button>
+        <button class="alt" id="btnSvg">SVG 내려받기</button>
+      </div>
+      <p class="hint">세 형식 모두 칼선 <b>CUT</b>, 오시선 <b>CREASE</b> 레이어로 분리됩니다. .ai는 일러스트레이터에서 바로 열리고, DXF는 R12 형식(mm)이라 라이노·캐드에서 읽힙니다.</p>
+    </div>
+  </aside>
+
+  <div class="stage">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="three" hidden></div>
+    <div class="viewtab">
+      <button id="tab2d" aria-pressed="true">도면</button>
+      <button id="tab3d" aria-pressed="false">3D 접기</button>
+    </div>
+    <div class="folder" id="folder" hidden>
+      <input type="range" id="fold" min="0" max="100" value="0">
+      <output id="foldv">펼침</output>
+      <button id="foldplay">접기</button>
+    </div>
+    <div class="legend">
+      <span><i style="border-top:2px solid #101418"></i>칼선</span>
+      <span><i style="border-top:2px dashed #d63b2f"></i>오시선</span>
+    </div>
+    <div class="tools">
+      <button id="btnFit">전체보기</button>
+      <button id="btnZi">+</button>
+      <button id="btnZo">−</button>
+    </div>
+    <div class="alerts" id="alerts"></div>
+  </div>
+</main>
+
+<footer id="stats"></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   1. 지오메트리 엔진
+   Rhino_Packaging_Toolkit (DDR68, MIT) 의 IronPython 계산식 이식 + 확장
+   ===================================================================== */
+const G = {};
+const L_=(k,x1,y1,x2,y2)=>({t:'l',k,x1,y1,x2,y2});
+const Q_=(k,x1,y1,cx,cy,x2,y2)=>({t:'q',k,x1,y1,cx,cy,x2,y2});
+const A_=(k,x1,y1,mx,my,x2,y2)=>({t:'a',k,x1,y1,mx,my,x2,y2});
+/* 사분원 접원호: 중심(cx,cy), 반경 r, 시작각→끝각(rad) */
+function quarter(k,cx,cy,r,a1,a2){
+  const am=(a1+a2)/2;
+  return A_(k, cx+r*Math.cos(a1), cy+r*Math.sin(a1),
+              cx+r*Math.cos(am), cy+r*Math.sin(am),
+              cx+r*Math.cos(a2), cy+r*Math.sin(a2));
+}
+const PI=Math.PI;
+
+/* 슬릿락 턱 끝 생성기 — 참고 도면(실측) 규격
+   · 턱 옆면은 패널 모서리에서 S 안쪽의 수직 직선
+   · 귀는 패널 모서리까지 돌출, 바깥 모서리는 직각
+   · 끝단 모서리는 귀도리 R(Rt), 슬릿 안쪽 끝은 고정 라운딩
+   XL,XR: 패널 좌·우 모서리 / yBase: 본체 쪽 기준선 / dir: +1 위, -1 아래
+   y0L,y0R: 좌·우 바깥 변의 시작 오프셋(STE 사면 연결용)              */
+function tuckEnd(XL,XR,yBase,dir,q){
+  const {P,S,fl,fp,ganc,tuckR,lock=true,y0L=0,y0R=0}=q;
+  const e=2*S;
+  const yS=P;                               // 패널 모서리 = 플랩 옆면 시작
+  const yF=lock?P-e:P;                      // 접힘선. 슬릿락이면 e만큼 안쪽으로 물려 귀를 만든다
+  const yT=yF+ganc;                         // 끝단
+  const xl=XL+S, xr=XR-S;                   // 턱 옆면(실측: 패널 모서리에서 S 안쪽)
+  const h=yT-yS;                            // 옆면 노출 높이
+  const Rt=Math.max(0,Math.min(tuckR, h*0.98, (xr-xl)/2));
+  // 슬릿 안쪽 끝의 목형 라운딩. 칼 응력을 죽이는 최소 곡률이라 조절 대상이 아니다.
+  const Rs=Math.max(0,Math.min(0.35, fl/4, fp/2));
+  const Y=v=>yBase+dir*v, G=a=>dir>0?a:-a;
+  const s=[];
+  const qa=(cx,cy,r,a1,a2)=>quarter('cut',cx,Y(cy),r,G(a1),G(a2));
+  s.push(L_('crease', lock?XL+fl:XL, Y(yF), lock?XR-fl:XR, Y(yF)));
+  // 패널 바깥 변
+  s.push(L_('cut',XL,Y(y0L),XL,Y(yS)), L_('cut',XR,Y(y0R),XR,Y(yS)));
+  if(lock){
+    // 귀선을 따라 안쪽으로 → 끝단 라운딩 → 크리스를 지나는 스텁
+    s.push(L_('cut',XL,Y(yS),XL+fl-Rs,Y(yS)), L_('cut',XR,Y(yS),XR-fl+Rs,Y(yS)));
+    if(Rs>0) s.push(qa(XL+fl-Rs,yS-Rs,Rs,0.5*PI,0), qa(XR-fl+Rs,yS-Rs,Rs,PI,0.5*PI));
+    s.push(L_('cut',XL+fl,Y(yS-Rs),XL+fl,Y(yS-fp)),
+           L_('cut',XR-fl,Y(yS-Rs),XR-fl,Y(yS-fp)));
+  } else {
+    // 귀 없음: 패널 모서리에서 플랩 옆면까지 두께 단차만 절개
+    s.push(L_('cut',XL,Y(yS),xl,Y(yS)), L_('cut',XR,Y(yS),xr,Y(yS)));
+  }
+  // 턱 옆면 + 끝단 귀도리 R
+  s.push(L_('cut',xl,Y(yS),xl,Y(yT-Rt)), L_('cut',xr,Y(yS),xr,Y(yT-Rt)));
+  if(Rt>0) s.push(qa(xl+Rt,yT-Rt,Rt,PI,0.5*PI), qa(xr-Rt,yT-Rt,Rt,0.5*PI,0));
+  s.push(L_('cut',xl+Rt,Y(yT),xr-Rt,Y(yT)));
+  return {seg:s, Rt, w:xr-xl, h, ok:!lock || (fl>S+Rs && fp>e)};
+}
+
+/* ---------- ECMA A20.20.03.01 리버스 턱 엔드 ---------- */
+G.rte = {
+  code:'A20.20.03.01', name:'리버스 턱 엔드', short:'RTE',
+  note:'상·하 덮개가 서로 반대 방향에서 꽂히는 가장 일반적인 단상자.',
+  dims:{L:50,P:25,A:80,S:0.4},
+  opts:{inc:18,ganc:18,chamf:3,taper:2,slitL:7,slitP:2.5,tuckR:9,lockTop:true,lockBot:true},
+  inner:(d)=>[d.L-3*d.S, d.P-2*d.S, d.A-4*d.S],
+  build(d,o){
+    const {L,P,A,S}=d, {inc,ganc,chamf,taper,slitL:fl,slitP:fp,nurbsK}=o;
+    const s=[], w=[];
+    if(P < inc+3) w.push({bad:1,m:`깊이 P(${P})가 접착탭 ${inc}+3mm보다 작습니다. 접었을 때 탭이 겹칩니다.`});
+    if(A <= 2*S) w.push({bad:1,m:`높이 A는 판지 두께의 2배(${(2*S).toFixed(1)}mm)보다 커야 합니다.`});
+    if(w.some(x=>x.bad)) return {seg:s,warn:w,labels:[]};
+
+    const body=A-2*S, ear=2*S;
+
+    const x0=0, x1=inc, x2=x1+L-S, x3=x2+P, x4=x3+L, x5=x4+P-S;
+    const yb=0, yt=body, ybt=yb-S, ytt=yt+S;
+    const tbf=ybt-P+ear, tbe=ybt-P, tbt=tbf-ganc;
+    const ttf=ytt+P-ear, tte=ytt+P, ttt=ttf+ganc;
+    const cx=(x3+x4)/2, yit=yt-S, yib=yb;
+    const dd=Math.min((P+ganc-S)/2, L/2);
+    if(dd < 10) w.push({m:`더스트 플랩 깊이가 ${dd.toFixed(1)}mm로 얕습니다. 내용물 지지가 약해 10mm 이상을 권장합니다.`});
+    if(P < 15) w.push({m:`깊이 ${P}mm는 자동 제함기 흡착이 불안정할 수 있습니다. 수동 제함을 전제하세요.`});
+
+    s.push(L_('crease',x1,yb,x1,yit), L_('crease',x2,yb,x2,yt),
+           L_('crease',x3,yb,x3,yt),  L_('crease',x4,yb,x4,yt));
+    s.push(L_('crease',x2+S,yb,x3,yb), L_('crease',x3,ybt,cx,ybt),
+           L_('crease',cx,ybt,x4,ybt), L_('crease',x4,yb,x5,yb));
+    s.push(L_('crease',x1,ytt,x2,ytt), L_('crease',x2,yt,x3-S,yt),
+           L_('crease',x4+S,yt,x5,yt));
+    s.push(L_('cut',x1,yb,x2,yb), L_('cut',x3,yt,x4,yt), L_('cut',x5,yb,x5,yt));
+    s.push(L_('cut',x2,yb,x2+S,yb), L_('cut',x3,yb,x3,ybt), L_('cut',x4,ybt,x4,yb),
+           L_('cut',x2,yt,x2,ytt), L_('cut',x3-S,yt,x3,yt), L_('cut',x4,yt,x4+S,yt));
+    s.push(L_('cut',x1,yib,x0,yib+chamf), L_('cut',x0,yib+chamf,x0,yit-chamf),
+           L_('cut',x0,yit-chamf,x1,yit));
+    const b2=x2+S;
+    s.push(L_('cut',b2,yb,b2,yb-chamf-taper),
+           L_('cut',b2,yb-chamf-taper,b2+chamf,yb-2*chamf-taper),
+           L_('cut',b2+chamf,yb-2*chamf-taper,b2+chamf+taper,yb-dd),
+           L_('cut',x3,yb,x3-chamf,yb-chamf),
+           L_('cut',x3-chamf,yb-chamf,x3-chamf,yb-dd),
+           L_('cut',b2+chamf+taper,yb-dd,x3-chamf,yb-dd));
+    s.push(L_('cut',x4,yb,x4+chamf,yb-chamf),
+           L_('cut',x4+chamf,yb-chamf,x4+chamf,yb-dd),
+           L_('cut',x5,yb,x5,yb-chamf-taper),
+           L_('cut',x5,yb-chamf-taper,x5-chamf,yb-2*chamf-taper),
+           L_('cut',x5-chamf,yb-2*chamf-taper,x5-chamf-taper,yb-dd),
+           L_('cut',x4+chamf,yb-dd,x5-chamf-taper,yb-dd));
+    const t2=x3-S;
+    s.push(L_('cut',x2,yt,x2+chamf,yt+chamf),
+           L_('cut',x2+chamf,yt+chamf,x2+chamf,yt+dd),
+           L_('cut',t2,yt,t2,yt+chamf+taper),
+           L_('cut',t2,yt+chamf+taper,t2-chamf,yt+2*chamf+taper),
+           L_('cut',t2-chamf,yt+2*chamf+taper,t2-chamf-taper,yt+dd),
+           L_('cut',x2+chamf,yt+dd,t2-chamf-taper,yt+dd));
+    const t4=x4+S;
+    s.push(L_('cut',t4,yt,t4,yt+chamf+taper),
+           L_('cut',t4,yt+chamf+taper,t4+chamf,yt+2*chamf+taper),
+           L_('cut',t4+chamf,yt+2*chamf+taper,t4+chamf+taper,yt+dd),
+           L_('cut',x5,yt,x5-chamf,yt+chamf),
+           L_('cut',x5-chamf,yt+chamf,x5-chamf,yt+dd),
+           L_('cut',t4+chamf+taper,yt+dd,x5-chamf,yt+dd));
+
+    /* 턱 끝 — 하단은 P3, 상단은 P1에서 */
+    const tq={P,S,fl,fp,ganc,tuckR:o.tuckR};
+    const tb=tuckEnd(x3,x4,ybt,-1,{...tq,lock:o.lockBot!==false}),
+          tt=tuckEnd(x1,x2,ytt,+1,{...tq,lock:o.lockTop!==false});
+    s.push(L_('cut',x1,yit,x1,ytt), ...tb.seg, ...tt.seg);
+    if((o.tuckR||0) > tb.Rt+1e-9)
+      w.push({m:`귀도리 R을 ${tb.Rt.toFixed(1)}mm로 제한했습니다. 턱 높이 ${tb.h.toFixed(1)} / 반폭 ${(tb.w/2).toFixed(1)}mm가 상한입니다.`});
+    if(!tb.ok) w.push({m:`슬릿 치수를 확인하세요. 슬릿 폭은 ${S}mm보다, 깊이는 ${(2*S).toFixed(1)}mm(크리스까지)보다 커야 합니다.`});
+
+    const labels=[['접착탭',(x0+x1)/2],['P1',(x1+x2)/2],['P2',(x2+x3)/2],
+                  ['P3',(x3+x4)/2],['P4',(x4+x5)/2]].map(([n,x])=>({n,x,y:body/2}));
+    const guides=[{t:'h',x1:x3,x2:x4,y:body*0.30,label:`폭 L ${L}`},
+                  {t:'h',x1:x4,x2:x5,y:body*0.30,label:`깊이 P ${P}`},
+                  {t:'v',x:x0-Math.max(7,L*0.16),y1:yb,y2:yt,label:`높이 A ${A}`}];
+    return {seg:s, warn:w, labels, guides};
+  }
+};
+
+/* =====================================================================
+   접힘 모델 — 판넬 트리. 각 노드는 접힘선(hinge)에서 부모에 매달린다.
+   axis 'y' 세로 오시(수직축 회전) / 'x' 가로 오시(수평축 회전)
+   접히는 방향은 판넬이 접힘선의 어느 쪽으로 뻗는지로 결정된다.
+   phase: 슬라이더 0~1 구간 중 이 판넬이 접히는 구간
+   ===================================================================== */
+function foldModel(d,o){
+  const {L,P,A,S}=d, {inc,ganc,chamf,taper,slitL:fl}=o;
+  const lockT=o.lockTop!==false, lockB=o.lockBot!==false;
+  const body=A-2*S, e=2*S;
+  const x0=0,x1=inc,x2=x1+L-S,x3=x2+P,x4=x3+L,x5=x4+P-S;
+  const yb=0,yt=body,ybt=yb-S,ytt=yt+S;
+  const dd=Math.min((P+ganc-S)/2, L/2);
+  const tte=ytt+P, ttf=lockT?tte-e:tte, ttt=ttf+ganc;
+  const tbe=ybt-P, tbf=lockB?tbe+e:tbe, tbt=tbf-ganc;
+  const Rt=Math.max(0,Math.min(o.tuckR, (ganc-(lockT?e:0))*0.98, (L-2*S)/2));
+  const rect=(ax,ay,bx,by)=>[[ax,ay],[bx,ay],[bx,by],[ax,by]];
+
+  /* 턱: 크리스에서는 슬릿 사이로 좁게 나가다 귀선에서 옆으로 벌어진다.
+     이 단차가 곧 슬릿락의 걸림턱이다. 끝단은 귀도리 R.               */
+  const tuckPoly=(xi1,xi2,xo1,xo2,yF,yE,yT)=>{
+    const dir=Math.sign(yT-yF), R=Math.min(Rt,(xo2-xo1)/2,Math.abs(yT-yE));
+    const cy=yT-dir*R, p=[[xi1,yF],[xi2,yF],[xi2,yE],[xo2,yE]];
+    for(let i=0;i<=8;i++){const a=i/8*Math.PI/2;
+      p.push([xo2-R+R*Math.cos(a), cy+dir*R*Math.sin(a)]);}
+    for(let i=0;i<=8;i++){const a=Math.PI/2+i/8*Math.PI/2;
+      p.push([xo1+R+R*Math.cos(a), cy+dir*R*Math.sin(a)]);}
+    p.push([xo1,yE],[xi1,yE]);
+    return p;
+  };
+  /* 더스트 플랩 — 전개도의 챔퍼·테이퍼 좌표를 그대로 쓴다 */
+  const b2=x2+S, t2=x3-S, t4=x4+S;
+  const dustB2=[[b2,yb],[b2,yb-chamf-taper],[b2+chamf,yb-2*chamf-taper],
+                [b2+chamf+taper,yb-dd],[x3-chamf,yb-dd],[x3-chamf,yb-chamf],[x3,yb]];
+  const dustB4=[[x4,yb],[x4+chamf,yb-chamf],[x4+chamf,yb-dd],
+                [x5-chamf-taper,yb-dd],[x5-chamf,yb-2*chamf-taper],[x5,yb-chamf-taper],[x5,yb]];
+  const dustT2=[[x2,yt],[x2+chamf,yt+chamf],[x2+chamf,yt+dd],
+                [t2-chamf-taper,yt+dd],[t2-chamf,yt+2*chamf+taper],[t2,yt+chamf+taper],[t2,yt]];
+  const dustT4=[[t4,yt],[t4,yt+chamf+taper],[t4+chamf,yt+2*chamf+taper],
+                [t4+chamf+taper,yt+dd],[x5-chamf,yt+dd],[x5-chamf,yt+chamf],[x5,yt]];
+
+  const node=(name,poly,hinge,axis,phase,children)=>({name,poly,hinge,axis,phase,children:children||[]});
+  return node('P2', rect(x2,yb,x3,yt), [x2,yb], null, null, [
+    node('P1', rect(x1,yb,x2,yt), [x2,yb], 'y', [0,.42], [
+      node('접착탭', [[x1,yb],[x0,yb+chamf],[x0,yt-S-chamf],[x1,yt-S]], [x1,yb], 'y', [.06,.48], []),
+      node('상단면', rect(x1,ytt,x2,tte), [x1,ytt], 'x', [.84,.95], [
+        node('상단턱', tuckPoly(lockT?x1+fl:x1+S, lockT?x2-fl:x2-S, x1+S, x2-S, ttf, tte, ttt),
+             [x1,ttf], 'x', [.93,1], [])
+      ])
+    ]),
+    node('P3', rect(x3,yb,x4,yt), [x3,yb], 'y', [0,.42], [
+      node('P4', rect(x4,yb,x5,yt), [x4,yb], 'y', [.04,.46], [
+        node('상단플랩4', dustT4, [t4,yt], 'x', [.78,.88], []),
+        node('하단플랩4', dustB4, [x4,yb], 'x', [.46,.57], [])
+      ]),
+      node('하단면', rect(x3,tbe,x4,ybt), [x3,ybt], 'x', [.58,.72], [
+        node('하단턱', tuckPoly(lockB?x3+fl:x3+S, lockB?x4-fl:x4-S, x3+S, x4-S, tbf, tbe, tbt),
+             [x3,tbf], 'x', [.70,.80], [])
+      ])
+    ]),
+    node('상단플랩2', dustT2, [x2,yt], 'x', [.78,.88], []),
+    node('하단플랩2', dustB2, [b2,yb], 'x', [.46,.57], [])
+  ]);
+}
+
+/* =====================================================================
+   2. 세그먼트 유틸
+   ===================================================================== */
+function arcFrom3(x1,y1,mx,my,x2,y2){
+  const dd=2*(x1*(my-y2)+mx*(y2-y1)+x2*(y1-my));
+  if(Math.abs(dd)<1e-9) return null;
+  const s1=x1*x1+y1*y1, s2=mx*mx+my*my, s3=x2*x2+y2*y2;
+  const cx=(s1*(my-y2)+s2*(y2-y1)+s3*(y1-my))/dd;
+  const cy=(s1*(x2-mx)+s2*(x1-x2)+s3*(mx-x1))/dd;
+  const r=Math.hypot(x1-cx,y1-cy);
+  const T2=Math.PI*2, n=v=>((v%T2)+T2)%T2;
+  const a1=Math.atan2(y1-cy,x1-cx), am=Math.atan2(my-cy,mx-cx), a2=Math.atan2(y2-cy,x2-cx);
+  const dm=n(am-a1), d2=n(a2-a1);
+  const ccw=dm<d2, span=ccw?d2:T2-d2;
+  return {cx,cy,r,a1,a2,ccw,span,large:span>Math.PI};
+}
+function flatten(sg,n=20){
+  const p=[];
+  if(sg.t==='l') return [[sg.x1,sg.y1],[sg.x2,sg.y2]];
+  if(sg.t==='q'){
+    for(let i=0;i<=n;i++){const t=i/n,u=1-t;
+      p.push([u*u*sg.x1+2*u*t*sg.cx+t*t*sg.x2, u*u*sg.y1+2*u*t*sg.cy+t*t*sg.y2]);}
+    return p;
+  }
+  const a=arcFrom3(sg.x1,sg.y1,sg.mx,sg.my,sg.x2,sg.y2);
+  if(!a) return [[sg.x1,sg.y1],[sg.x2,sg.y2]];
+  for(let i=0;i<=n;i++){const t=i/n, ang=a.a1+(a.ccw?a.span:-a.span)*t;
+    p.push([a.cx+a.r*Math.cos(ang), a.cy+a.r*Math.sin(ang)]);}
+  return p;
+}
+function bbox(segs){
+  let x0=1/0,y0=1/0,x1=-1/0,y1=-1/0;
+  for(const s of segs) for(const[px,py]of flatten(s,12)){
+    if(px<x0)x0=px; if(py<y0)y0=py; if(px>x1)x1=px; if(py>y1)y1=py; }
+  return {x0,y0,x1,y1,w:x1-x0,h:y1-y0};
+}
+function lengths(segs){
+  let cut=0, crease=0;
+  for(const s of segs){
+    const p=flatten(s,24); let d=0;
+    for(let i=1;i<p.length;i++) d+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);
+    if(s.k==='cut') cut+=d; else crease+=d;
+  }
+  return {cut,crease};
+}
+
+/* =====================================================================
+   3. 프리셋 · 상태 · UI
+   ===================================================================== */
+const OPTLABEL={inc:['접착탭 폭','inc'],ganc:['턱 삽입 길이','ganc'],chamf:['모서리 챔퍼','chamf'],
+  taper:['플랩 테이퍼','taper'],slitL:['슬릿락 폭','slit L'],slitP:['슬릿락 깊이','slit P'],
+  tuckR:['귀도리 R','R'],lockTop:['상단 슬릿락',''],lockBot:['하단 슬릿락',''],
+  C:['접착탭 폭','C'],E:['목형 챔퍼','E'],T:['플랩 돌출','T']};
+
+/* 세장형(픽서) / 표준형 구조 파라미터 세트 */
+const SLIM ={inc:11,ganc:12,chamf:2,  taper:1.5,slitL:5,  slitP:2,  tuckR:6, lockTop:true,lockBot:true};
+const SLIM2={inc:12,ganc:13,chamf:2,  taper:1.5,slitL:5.5,slitP:2,  tuckR:7, lockTop:true,lockBot:true};
+const MID  ={inc:16,ganc:16,chamf:3,  taper:2,  slitL:6,  slitP:2.5,tuckR:8, lockTop:true,lockBot:true};
+const STD  ={inc:18,ganc:18,chamf:3,  taper:2,  slitL:7,  slitP:2.5,tuckR:9, lockTop:true,lockBot:true};
+
+const PRESETS=[
+ {cat:'펌제 파우치 단상자', items:[
+   {n:'10개입', prod:'파우치 40 × 26 × 96', clr:'폭·깊이 +1.0 / 높이 +2.0',
+    s:'rte', d:{L:42.5,P:28,A:100,S:0.4}, o:MID}]},
+ {cat:'픽서 단상자', items:[
+   {n:'5g',  prod:'용기 ⌀14 × 91',   clr:'⌀ +1.0 / 높이 +2.0',
+    s:'rte', d:{L:16.5,P:16,A:95,S:0.4}, o:SLIM},
+   {n:'10g', prod:'용기 ⌀16.5 × 108', clr:'⌀ +1.0 / 높이 +2.0',
+    s:'rte', d:{L:19,P:18.5,A:112,S:0.4}, o:SLIM2}]},
+ {cat:'래쉬샴푸 단상자', items:[
+   {n:'40ml', prod:'용기 ⌀36 × 110', clr:'⌀ +1.0 / 높이 +2.0',
+    s:'rte', d:{L:38.5,P:38,A:114,S:0.4}, o:STD},
+   {n:'50ml', prod:'용기 ⌀36 × 120', clr:'⌀ +1.0 / 높이 +2.0',
+    s:'rte', d:{L:38.5,P:38,A:124,S:0.4}, o:STD},
+   {n:'60ml', prod:'용기 ⌀36 × 129', clr:'⌀ +1.0 / 높이 +2.0',
+    s:'rte', d:{L:38.5,P:38,A:133,S:0.4}, o:STD},
+   {n:'100ml',prod:'용기 ⌀36 × 180', clr:'⌀ +1.0 / 높이 +2.0',
+    s:'rte', d:{L:38.5,P:38,A:184,S:0.4}, o:STD}]}
+];
+const SHEETS=[['국전 636×939',636,939],['46전 788×1091',788,1091],['A3+ 329×483',329,483]];
+
+let cur='rte', D={...G.rte.dims}, O={...G.rte.opts}, view={k:1,tx:0,ty:0}, model=null, picked=null;
+
+const $=id=>document.getElementById(id);
+const round=(v,n=1)=>{const p=10**n;return Math.round(v*p)/p};
+
+function buildPresets(){
+  $('presets').innerHTML=PRESETS.map((c,ci)=>
+    `<div class="pcat"><h3>${c.cat}</h3><div class="prow">${
+      c.items.map((it,ii)=>`<button data-p="${ci}.${ii}"
+        aria-pressed="${picked===ci+'.'+ii}">${it.n}</button>`).join('')
+    }</div></div>`).join('');
+  $('presets').onclick=e=>{const b=e.target.closest('button'); if(!b)return;
+    const [ci,ii]=b.dataset.p.split('.').map(Number), it=PRESETS[ci].items[ii];
+    picked=b.dataset.p; cur=it.s; D={...it.d}; O={...it.o}; buildPresets(); buildInputs(); render(true);};
+  drawPinfo();
+}
+function drawPinfo(){
+  if(!picked){ $('pinfo').innerHTML='프리셋을 고르면 외경 치수와 구조 파라미터가 함께 바뀝니다.'; return; }
+  const [ci,ii]=picked.split('.').map(Number), it=PRESETS[ci].items[ii];
+  const inn=G[cur].inner(D).map(v=>v==null?'—':round(v,1));
+  $('pinfo').innerHTML=`<b>${PRESETS[ci].cat} ${it.n}</b><br>${it.prod}
+    ${it.est?` <em>(${it.est})</em>`:''}<br>여유 ${it.clr}<br>
+    내경 ${inn[0]} × ${inn[1]} × ${inn[2]}`;
+}
+function buildInputs(){
+  const g=G[cur];
+  $('dims').innerHTML=[['L','폭'],['P','깊이'],['A','높이'],['S','판지 두께']].map(([k,n])=>
+    `<div class="field"><label>${n}<em>${k}</em></label>
+     <input type="number" step="${k==='S'?0.05:0.5}" min="0" data-d="${k}" value="${D[k]}"></div>`).join('');
+  $('opts').innerHTML=Object.keys(g.opts).map(k=>{
+    const [n,sym]=OPTLABEL[k]||[k,k];
+    if(typeof g.opts[k]==='boolean')
+      return `<label class="toggle"><input type="checkbox" data-b="${k}"${O[k]?' checked':''}>${n}</label>`;
+    return `<div class="field"><label>${n}<em>${sym}</em></label>
+      <input type="number" step="0.5" min="0" data-o="${k}" value="${O[k]}"></div>`;
+  }).join('');
+  document.querySelectorAll('[data-b]').forEach(i=>{
+    i.onchange=()=>{O[i.dataset.b]=i.checked; render(false); drawPinfo(); if(!$('three').hidden) buildPanels();};
+  });
+  document.querySelectorAll('[data-d],[data-o]').forEach(i=>{
+    i.oninput=()=>{const v=parseFloat(i.value); if(!isFinite(v))return;
+      if(i.dataset.d) D[i.dataset.d]=v; else O[i.dataset.o]=v;
+      render(false); drawPinfo();};
+  });
+}
+
+function segPath(s){
+  if(s.t==='l') return `M${s.x1} ${s.y1}L${s.x2} ${s.y2}`;
+  if(s.t==='q') return `M${s.x1} ${s.y1}Q${s.cx} ${s.cy} ${s.x2} ${s.y2}`;
+  const a=arcFrom3(s.x1,s.y1,s.mx,s.my,s.x2,s.y2);
+  if(!a) return `M${s.x1} ${s.y1}L${s.x2} ${s.y2}`;
+  return `M${s.x1} ${s.y1}A${a.r} ${a.r} 0 ${a.large?1:0} ${a.ccw?1:0} ${s.x2} ${s.y2}`;
+}
+function render(fit){
+  const g=G[cur];
+  model=g.build(D,O);
+  const svg=$('svg'), W=svg.clientWidth||900, H=svg.clientHeight||600;
+  const bb=model.seg.length?bbox(model.seg):{x0:0,y0:0,x1:100,y1:100,w:100,h:100};
+  if(fit||!isFinite(view.k)||view.k<=0) fitView(bb,W,H);
+
+  const showC=$('cbCrease').checked, showD=$('cbDim').checked,
+        showL=$('cbLabel').checked, showG=$('cbGrid').checked;
+  const cuts=model.seg.filter(s=>s.k==='cut').map(segPath).join('');
+  const crs=showC?model.seg.filter(s=>s.k==='crease').map(segPath).join(''):'';
+  const sc=Math.max(bb.w,bb.h);
+
+  let dim='';
+  if(showD&&model.seg.length){
+    const off=sc*0.055, e=off*0.3, yb=bb.y0-off, xr=bb.x1+off;
+    dim=`<g stroke="var(--dim)" stroke-width="1" vector-effect="non-scaling-stroke" fill="none">
+      <path d="M${bb.x0} ${yb}H${bb.x1}M${bb.x0} ${yb-e}V${yb+e}M${bb.x1} ${yb-e}V${yb+e}
+               M${bb.x0} ${bb.y0}V${yb-e}M${bb.x1} ${bb.y0}V${yb-e}"/>
+      <path d="M${xr} ${bb.y0}V${bb.y1}M${xr-e} ${bb.y0}H${xr+e}M${xr-e} ${bb.y1}H${xr+e}
+               M${bb.x1} ${bb.y0}H${xr+e}M${bb.x1} ${bb.y1}H${xr+e}"/></g>`;
+  }
+  const lab=showL?model.labels.map(l=>`<text x="${l.x}" y="${-l.y}" class="pl">${l.n}</text>`).join(''):'';
+  const gv=model.guides||[], gt=sc*0.012;
+  const gline=showD?`<g stroke="var(--dim)" stroke-width="1" fill="none" vector-effect="non-scaling-stroke">`
+    +gv.map(g=>g.t==='h'
+      ? `<path d="M${g.x1} ${g.y}H${g.x2}M${g.x1} ${g.y-gt}V${g.y+gt}M${g.x2} ${g.y-gt}V${g.y+gt}"/>`
+      : `<path d="M${g.x} ${g.y1}V${g.y2}M${g.x-gt} ${g.y1}H${g.x+gt}M${g.x-gt} ${g.y2}H${g.x+gt}"/>`).join('')
+    +`</g>`:'';
+  const gtext=showD?gv.map(g=>g.t==='h'
+    ? `<text class="gd" x="${(g.x1+g.x2)/2}" y="${-g.y}" dy="${-sc/95}">${g.label}</text>`
+    : `<text class="gd" x="${g.x}" y="${-(g.y1+g.y2)/2}" transform="rotate(-90 ${g.x} ${-(g.y1+g.y2)/2})" dy="${-sc/95}">${g.label}</text>`
+    ).join(''):'';
+  const grid=showG?`<rect x="${bb.x0-40}" y="${-bb.y1-40}" width="${bb.w+80}" height="${bb.h+80}" fill="url(#gr)"/>`:'';
+
+  svg.innerHTML=`
+  <defs>
+    <pattern id="gr" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M10 0H0V10" fill="none" stroke="var(--grid)" stroke-width="0.3"/>
+    </pattern>
+    <style>
+      .pl{font:500 ${sc/60}px 'IBM Plex Sans KR',sans-serif;fill:#a8b0b8;
+          text-anchor:middle;dominant-baseline:middle}
+      .dt{font:400 ${sc/55}px 'IBM Plex Mono',monospace;fill:#3d7ea6;text-anchor:middle}
+      .gd{font:500 ${sc/62}px 'IBM Plex Sans KR',sans-serif;fill:#3d7ea6;text-anchor:middle}
+    </style>
+  </defs>
+  <g transform="translate(${view.tx},${view.ty}) scale(${view.k})">
+    ${grid}
+    <g transform="scale(1,-1)">
+      ${dim}
+      <path d="${crs}" fill="none" stroke="var(--crease)" stroke-width="1.4"
+            stroke-dasharray="5 3" vector-effect="non-scaling-stroke"/>
+      <path d="${cuts}" fill="none" stroke="var(--cut)" stroke-width="1.6"
+            vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      ${gline}
+    </g>
+    ${lab}${gtext}
+    ${showD&&model.seg.length?`
+      <text class="dt" x="${(bb.x0+bb.x1)/2}" y="${-(bb.y0-sc*0.055)+sc/45}">${round(bb.w)}</text>
+      <text class="dt" x="${bb.x1+sc*0.055}" y="${-(bb.y0+bb.y1)/2}"
+            transform="rotate(-90 ${bb.x1+sc*0.055} ${-(bb.y0+bb.y1)/2})"
+            dy="-6">${round(bb.h)}</text>`:''}
+  </g>`;
+  drawStats(bb); drawAlerts(model.warn);
+}
+function fitView(bb,W,H){
+  const m=52, k=Math.min((W-m*2)/Math.max(bb.w,1),(H-m*2)/Math.max(bb.h,1));
+  view.k=k; view.tx=W/2-k*(bb.x0+bb.x1)/2; view.ty=H/2+k*(bb.y0+bb.y1)/2;
+}
+function drawAlerts(w){
+  $('alerts').innerHTML=(w||[]).map(a=>`<div class="alert${a.bad?' bad':''}">${a.m}</div>`).join('');
+}
+function drawStats(bb){
+  const g=G[cur], inn=g.inner(D), len=lengths(model.seg);
+  const best=SHEETS.map(([n,sw,sh])=>{
+    const m=10, w=bb.w+3, h=bb.h+3;
+    const a=Math.floor((sw-2*m)/w)*Math.floor((sh-2*m)/h);
+    const b=Math.floor((sw-2*m)/h)*Math.floor((sh-2*m)/w);
+    return {n,c:Math.max(a,b,0)};
+  });
+  const f=v=>v==null?'—':round(v,1);
+  $('stats').innerHTML=`
+    <div class="stat"><dt>구조</dt><dd>${g.short} <small>${g.code}</small></dd></div>
+    <div class="stat"><dt>외경 L×P×A</dt><dd>${D.L}×${D.P}×${D.A}</dd></div>
+    <div class="stat"><dt>내경 (두께 보정 후)</dt><dd>${f(inn[0])}×${f(inn[1])}×${f(inn[2])}</dd></div>
+    <div class="stat"><dt>전개 크기</dt><dd>${round(bb.w)}×${round(bb.h)} <small>mm</small></dd></div>
+    <div class="stat"><dt>칼선 길이</dt><dd>${round(len.cut/1000,2)} <small>m</small></dd></div>
+    <div class="stat"><dt>오시선 길이</dt><dd>${round(len.crease/1000,2)} <small>m</small></dd></div>
+    ${best.map(b=>`<div class="stat"><dt>${b.n}</dt><dd>${b.c} <small>장 앉힘</small></dd></div>`).join('')}`;
+}
+
+(function(){
+  const svg=$('svg'); let dg=null;
+  svg.addEventListener('pointerdown',e=>{dg={x:e.clientX,y:e.clientY,tx:view.tx,ty:view.ty};
+    svg.setPointerCapture(e.pointerId); svg.classList.add('drag');});
+  svg.addEventListener('pointermove',e=>{if(!dg)return;
+    view.tx=dg.tx+(e.clientX-dg.x); view.ty=dg.ty+(e.clientY-dg.y); render(false);});
+  const end=()=>{dg=null;svg.classList.remove('drag')};
+  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
+  svg.addEventListener('wheel',e=>{e.preventDefault();
+    const r=svg.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+    const f=e.deltaY<0?1.12:1/1.12;
+    view.tx=mx-(mx-view.tx)*f; view.ty=my-(my-view.ty)*f; view.k*=f; render(false);},{passive:false});
+  const zoom=f=>{const r=svg.getBoundingClientRect(),mx=r.width/2,my=r.height/2;
+    view.tx=mx-(mx-view.tx)*f; view.ty=my-(my-view.ty)*f; view.k*=f; render(false);};
+  $('btnZi').onclick=()=>zoom(1.25); $('btnZo').onclick=()=>zoom(.8);
+  $('btnFit').onclick=()=>render(true);
+  addEventListener('resize',()=>render(true));
+  ['cbCrease','cbDim','cbLabel','cbGrid'].forEach(id=>$(id).onchange=()=>render(false));
+})();
+
+/* =====================================================================
+   4. 내보내기
+   ===================================================================== */
+function fname(ext){
+  const p=picked?PRESETS[picked.split('.')[0]].items[picked.split('.')[1]].n+'_':'';
+  return `${p}${G[cur].code.replace(/[ .]/g,'_')}_${D.L}x${D.P}x${D.A}_t${D.S}.${ext}`;
+}
+function save(text,name,mime){
+  const b=new Blob([text],{type:mime}), u=URL.createObjectURL(b), a=document.createElement('a');
+  a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1500);
+}
+function toDXF(){
+  const n=(c,v)=>`${c}\n${v}\n`;
+  let e='';
+  for(const s of model.seg){
+    const lay=s.k==='cut'?'CUT':'CREASE';
+    if(s.t==='l'){
+      e+=n(0,'LINE')+n(8,lay)+n(10,s.x1.toFixed(4))+n(20,s.y1.toFixed(4))+n(30,'0.0')
+        +n(11,s.x2.toFixed(4))+n(21,s.y2.toFixed(4))+n(31,'0.0');
+    } else if(s.t==='a'){
+      const a=arcFrom3(s.x1,s.y1,s.mx,s.my,s.x2,s.y2);
+      if(a){
+        const dg=r=>(r*180/Math.PI+360)%360;
+        const st=a.ccw?dg(a.a1):dg(a.a2), en=a.ccw?dg(a.a2):dg(a.a1);
+        e+=n(0,'ARC')+n(8,lay)+n(10,a.cx.toFixed(4))+n(20,a.cy.toFixed(4))+n(30,'0.0')
+          +n(40,a.r.toFixed(4))+n(50,st.toFixed(4))+n(51,en.toFixed(4));
+      }
+    } else {
+      const p=flatten(s,28);
+      for(let i=1;i<p.length;i++)
+        e+=n(0,'LINE')+n(8,lay)+n(10,p[i-1][0].toFixed(4))+n(20,p[i-1][1].toFixed(4))+n(30,'0.0')
+          +n(11,p[i][0].toFixed(4))+n(21,p[i][1].toFixed(4))+n(31,'0.0');
+    }
+  }
+  const dxf=
+    n(0,'SECTION')+n(2,'HEADER')+n(9,'$ACADVER')+n(1,'AC1009')
+      +n(9,'$INSUNITS')+n(70,'4')+n(0,'ENDSEC')
+    +n(0,'SECTION')+n(2,'TABLES')+n(0,'TABLE')+n(2,'LAYER')+n(70,'2')
+      +n(0,'LAYER')+n(2,'CUT')+n(70,'0')+n(62,'7')+n(6,'CONTINUOUS')
+      +n(0,'LAYER')+n(2,'CREASE')+n(70,'0')+n(62,'1')+n(6,'CONTINUOUS')
+      +n(0,'ENDTAB')+n(0,'ENDSEC')
+    +n(0,'SECTION')+n(2,'ENTITIES')+e+n(0,'ENDSEC')+n(0,'EOF');
+  save(dxf,fname('dxf'),'application/dxf');
+}
+/* ---------- Adobe Illustrator (.ai) ----------
+   AI는 v9부터 PDF 컨테이너다. 칼선/오시선을 PDF 옵셔널 콘텐츠 그룹으로 넣으면
+   일러스트레이터가 이를 레이어로 읽는다. 단위는 pt(1mm = 72/25.4pt).      */
+function arcBeziers(a){
+  // 원호를 90도 이하 조각의 3차 베지어로 분해
+  const out=[], n=Math.max(1,Math.ceil(a.span/(Math.PI/2)));
+  const sw=a.ccw?1:-1, step=a.span/n*sw;
+  for(let i=0;i<n;i++){
+    const t0=a.a1+step*i, t1=t0+step;
+    const k=4/3*Math.tan((t1-t0)/4);
+    const c=Math.cos, s_=Math.sin;
+    const p0=[a.cx+a.r*c(t0), a.cy+a.r*s_(t0)], p3=[a.cx+a.r*c(t1), a.cy+a.r*s_(t1)];
+    out.push([p0[0]-k*a.r*s_(t0), p0[1]+k*a.r*c(t0),
+              p3[0]+k*a.r*s_(t1), p3[1]-k*a.r*c(t1), p3[0], p3[1]]);
+  }
+  return out;
+}
+function toAI(){
+  const bb=bbox(model.seg), m=5, K=72/25.4;
+  const W=(bb.w+2*m)*K, H=(bb.h+2*m)*K;
+  const X=v=>((v-bb.x0+m)*K).toFixed(3), Y=v=>((v-bb.y0+m)*K).toFixed(3);
+  const draw=k=>model.seg.filter(g=>g.k===k).map(g=>{
+    if(g.t==='l') return `${X(g.x1)} ${Y(g.y1)} m ${X(g.x2)} ${Y(g.y2)} l S\n`;
+    const a=arcFrom3(g.x1,g.y1,g.mx,g.my,g.x2,g.y2);
+    if(!a) return `${X(g.x1)} ${Y(g.y1)} m ${X(g.x2)} ${Y(g.y2)} l S\n`;
+    return `${X(g.x1)} ${Y(g.y1)} m ` + arcBeziers(a).map(b=>
+      `${X(b[0])} ${Y(b[1])} ${X(b[2])} ${Y(b[3])} ${X(b[4])} ${Y(b[5])} c `).join('') + `S\n`;
+  }).join('');
+  const content = `${(0.25*K).toFixed(4)} w 1 J 1 j\n`
+    + `/OC /L2 BDC\n1 0 0 RG\n${draw('crease')}EMC\n`
+    + `/OC /L1 BDC\n0 0 0 RG\n${draw('cut')}EMC\n`;
+
+  const objs=[];
+  objs[1]=`<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [5 0 R 6 0 R] `
+        + `/D << /Order [5 0 R 6 0 R] /ON [5 0 R 6 0 R] >> >> >>`;
+  objs[2]=`<< /Type /Pages /Kids [3 0 R] /Count 1 >>`;
+  objs[3]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W.toFixed(3)} ${H.toFixed(3)}] `
+        + `/Resources << /Properties << /L1 5 0 R /L2 6 0 R >> >> /Contents 4 0 R >>`;
+  objs[4]=`<< /Length ${content.length} >>\nstream\n${content}endstream`;
+  objs[5]=`<< /Type /OCG /Name (CUT) >>`;
+  objs[6]=`<< /Type /OCG /Name (CREASE) >>`;
+
+  let pdf='%PDF-1.5\n%\xE2\xE3\xCF\xD3\n', off=[];
+  for(let i=1;i<objs.length;i++){ off[i]=pdf.length; pdf+=`${i} 0 obj\n${objs[i]}\nendobj\n`; }
+  const xref=pdf.length;
+  pdf+=`xref\n0 ${objs.length}\n0000000000 65535 f \n`;
+  for(let i=1;i<objs.length;i++) pdf+=String(off[i]).padStart(10,'0')+' 00000 n \n';
+  pdf+=`trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const bytes=new Uint8Array(pdf.length);
+  for(let i=0;i<pdf.length;i++) bytes[i]=pdf.charCodeAt(i)&0xff;
+  const b=new Blob([bytes],{type:'application/postscript'});
+  const u=URL.createObjectURL(b), a=document.createElement('a');
+  a.href=u; a.download=fname('ai'); a.click(); setTimeout(()=>URL.revokeObjectURL(u),1500);
+}
+function toSVG(){
+  const bb=bbox(model.seg), m=5;
+  const p=k=>model.seg.filter(s=>s.k===k).map(segPath).join('');
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${round(bb.w+m*2,2)}mm" height="${round(bb.h+m*2,2)}mm"
+ viewBox="${round(bb.x0-m,3)} ${round(-bb.y1-m,3)} ${round(bb.w+m*2,3)} ${round(bb.h+m*2,3)}">
+<g transform="scale(1,-1)">
+<g id="CREASE" fill="none" stroke="#ff0000" stroke-width="0.25"><path d="${p('crease')}"/></g>
+<g id="CUT" fill="none" stroke="#000000" stroke-width="0.25"><path d="${p('cut')}"/></g>
+</g></svg>`;
+  save(svg,fname('svg'),'image/svg+xml');
+}
+$('btnAi').onclick=toAI; $('btnDxf').onclick=toDXF; $('btnSvg').onclick=toSVG; /* =====================================================================
+   5. 3D 접기 미리보기
+   판넬 트리를 그대로 three.js 계층으로 옮긴다. 각 판넬은 접힘선 위치에
+   놓인 그룹의 자식이므로, 그룹을 회전시키면 접힘선을 축으로 접힌다.
+   ===================================================================== */
+let TH=null;
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const clamp01=v=>Math.max(0,Math.min(1,v));
+
+function buildThree(){
+  if(TH||!window.THREE) return TH;
+  const host=$('three');
+  const scene=new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff,0xb9bec4,1.05));
+  const key=new THREE.DirectionalLight(0xffffff,.55); key.position.set(.6,1,.9); scene.add(key);
+  const cam=new THREE.PerspectiveCamera(38,1,1,4000);
+  const rend=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  rend.setPixelRatio(Math.min(devicePixelRatio,2));
+  host.appendChild(rend.domElement);
+  const pivot=new THREE.Group(); scene.add(pivot);
+  TH={scene,cam,rend,pivot,host,orbit:{az:-0.55,el:0.42,dist:400},nodes:[],root:null};
+
+  // 자체 궤도 조작 (r128 CDN에는 OrbitControls가 없다)
+  let drag=null;
+  const el=rend.domElement;
+  el.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,...TH.orbit};
+    el.setPointerCapture(e.pointerId);});
+  el.addEventListener('pointermove',e=>{if(!drag)return;
+    TH.orbit.az=drag.az+(e.clientX-drag.x)*0.008;
+    TH.orbit.el=Math.max(-1.45,Math.min(1.45,drag.el-(e.clientY-drag.y)*0.008));
+    placeCam();});
+  const stop=()=>drag=null;
+  el.addEventListener('pointerup',stop); el.addEventListener('pointercancel',stop);
+  el.addEventListener('wheel',e=>{e.preventDefault();
+    TH.orbit.dist=Math.max(60,Math.min(1600,TH.orbit.dist*(e.deltaY<0?.9:1.111))); placeCam();},
+    {passive:false});
+  return TH;
+}
+function placeCam(){
+  const {cam,orbit}=TH, {az,el,dist}=orbit;
+  cam.position.set(dist*Math.cos(el)*Math.sin(az), dist*Math.sin(el), dist*Math.cos(el)*Math.cos(az));
+  cam.lookAt(0,0,0); drawThree();
+}
+function shapeFrom(poly,ox,oy){
+  const sh=new THREE.Shape();
+  poly.forEach(([x,y],i)=>i?sh.lineTo(x-ox,y-oy):sh.moveTo(x-ox,y-oy));
+  sh.closePath(); return new THREE.ShapeGeometry(sh);
+}
+function buildPanels(){
+  const t=buildThree(); if(!t) return;
+  while(t.pivot.children.length) t.pivot.remove(t.pivot.children[0]);
+  t.nodes=[];
+  const tree=foldModel(D,O);
+  const outer=new THREE.MeshLambertMaterial({color:0xfbfaf7,side:THREE.FrontSide});
+  const inner=new THREE.MeshLambertMaterial({color:0xd8cdb8,side:THREE.BackSide});
+  const edge=new THREE.LineBasicMaterial({color:0x8d949b});
+  const add=(nd,parent,ph,px,py)=>{
+    const g=new THREE.Group();
+    g.position.set(nd.hinge[0]-px, nd.hinge[1]-py, 0);
+    parent.add(g);
+    const geo=shapeFrom(nd.poly, nd.hinge[0], nd.hinge[1]);
+    g.add(new THREE.Mesh(geo,outer), new THREE.Mesh(geo,inner),
+          new THREE.LineSegments(new THREE.EdgesGeometry(geo),edge));
+    if(nd.axis){
+      // 접힘선 기준 어느 쪽으로 뻗는지가 접히는 방향을 정한다
+      const c=nd.poly.reduce((a,p)=>[a[0]+p[0]/nd.poly.length,a[1]+p[1]/nd.poly.length],[0,0]);
+      const dir=nd.axis==='y'?Math.sign(c[0]-nd.hinge[0]):Math.sign(c[1]-nd.hinge[1]);
+      const target=(nd.axis==='y'? dir : -dir)*Math.PI/2;
+      t.nodes.push({g,axis:nd.axis,target,phase:nd.phase});
+    }
+    nd.children.forEach(ch=>add(ch,g,ph,nd.hinge[0],nd.hinge[1]));
+  };
+  const root=new THREE.Group(); t.pivot.add(root); t.root=root;
+  const geo=shapeFrom(tree.poly,tree.hinge[0],tree.hinge[1]);
+  root.add(new THREE.Mesh(geo,outer), new THREE.Mesh(geo,inner),
+           new THREE.LineSegments(new THREE.EdgesGeometry(geo),edge));
+  tree.children.forEach(ch=>add(ch,root,0,tree.hinge[0],tree.hinge[1]));
+  // 상자 중심이 원점에 오도록
+  root.position.set(-(D.L)/2, -(D.A-2*D.S)/2, D.P/2);
+  t.orbit.dist=Math.max(D.L,D.P,D.A)*3.1;
+  setFold(+$('fold').value/100);
+  placeCam();
+}
+function setFold(v){
+  if(!TH) return;
+  for(const n of TH.nodes){
+    const [a,b]=n.phase, p=ease(clamp01((v-a)/Math.max(1e-6,b-a)));
+    n.g.rotation[n.axis]=n.target*p;
+  }
+  drawThree();
+}
+function drawThree(){
+  if(!TH||$('three').hidden) return;
+  const w=TH.host.clientWidth||600, h=TH.host.clientHeight||400;
+  TH.rend.setSize(w,h,false); TH.cam.aspect=w/h; TH.cam.updateProjectionMatrix();
+  TH.rend.render(TH.scene,TH.cam);
+}
+function setView(is3d){
+  $('three').hidden=!is3d; $('svg').style.display=is3d?'none':'block';
+  $('folder').hidden=!is3d; $('tab2d').setAttribute('aria-pressed',!is3d);
+  $('tab3d').setAttribute('aria-pressed',is3d);
+  // 범례와 확대 버튼은 도면 전용이다
+  document.querySelector('.legend').hidden=is3d;
+  document.querySelector('.tools').hidden=is3d;
+  if(is3d){ if(!window.THREE){ $('three').innerHTML=
+      '<p style="padding:24px;color:#6d7681;font-size:13px">3D 미리보기를 불러오지 못했습니다. 네트워크를 확인하고 새로고침해 주세요.</p>';
+      return;} buildPanels(); }
+}
+$('tab2d').onclick=()=>setView(false);
+$('tab3d').onclick=()=>setView(true);
+$('fold').oninput=e=>{const v=+e.target.value/100;
+  $('foldv').textContent = v<=0?'펼침':(v>=1?'완성':Math.round(v*100)+'%');
+  setFold(v);};
+$('foldplay').onclick=()=>{
+  const inp=$('fold'); let from=+inp.value, to=from>50?0:100, t0=performance.now();
+  $('foldplay').textContent = to?'접기':'펴기';
+  (function step(now){
+    const k=Math.min(1,(now-t0)/1400), v=from+(to-from)*ease(k);
+    inp.value=v; inp.dispatchEvent(new Event('input'));
+    if(k<1) requestAnimationFrame(step);
+  })(t0);
+};
+addEventListener('resize',()=>drawThree());
+
+buildPresets(); buildInputs(); render(true);
+</script>
+</body>
+</html>
