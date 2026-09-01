@@ -18,6 +18,8 @@
     --quote-soft:#e4f1f3;
     --sop:#b26a15;          /* 작업표준서 = 앰버 */
     --sop-soft:#f6ecdc;
+    --die:#b23a2b;          /* 단상자 도면 = 오시선 적색 */
+    --die-soft:#f8e8e4;
     --shadow:0 1px 2px rgba(22,35,46,.05), 0 10px 30px rgba(22,35,46,.08);
     --shadow-hi:0 4px 10px rgba(22,35,46,.10), 0 24px 50px rgba(22,35,46,.16);
   }
@@ -30,6 +32,7 @@
     background-image:
       radial-gradient(circle at 15% 12%, rgba(14,124,139,.05), transparent 42%),
       radial-gradient(circle at 88% 82%, rgba(178,106,21,.05), transparent 45%),
+      radial-gradient(circle at 50% 108%, rgba(178,58,43,.045), transparent 42%),
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='60' height='60' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
     min-height:100vh;
     display:flex; flex-direction:column;
@@ -77,15 +80,22 @@
 
   /* ---------- 도구 카드 ---------- */
   .tools{
-    display:grid; grid-template-columns:1fr 1fr; gap:22px;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:22px;
     padding:14px 0 50px;
   }
-  @media(max-width:760px){ .tools{ grid-template-columns:1fr; } }
+  @media(max-width:1000px){
+    .tools{ grid-template-columns:1fr 1fr; }
+    .tools .tool:last-child{ grid-column:1 / -1; }   /* 홀로 남지 않도록 */
+  }
+  @media(max-width:760px){
+    .tools{ grid-template-columns:1fr; }
+    .tools .tool:last-child{ grid-column:auto; }
+  }
 
   .tool{
     position:relative; display:flex; flex-direction:column;
     background:var(--card); border:1px solid var(--line);
-    border-radius:16px; padding:30px 28px 26px;
+    border-radius:16px; padding:28px 24px 24px;
     text-decoration:none; color:inherit; overflow:hidden;
     box-shadow:var(--shadow);
     transition:transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s, border-color .22s;
@@ -111,6 +121,7 @@
 
   .tool.quote{ --accent:var(--quote); --accent-soft:var(--quote-soft); }
   .tool.sop{ --accent:var(--sop); --accent-soft:var(--sop-soft); }
+  .tool.die{ --accent:var(--die); --accent-soft:var(--die-soft); }
 
   .tool .doc-tab{
     align-self:flex-start;
@@ -173,7 +184,8 @@
   .hero{ animation-delay:.02s; }
   .tool.quote{ animation-delay:.12s; }
   .tool.sop{ animation-delay:.20s; }
-  .foot-inner{ animation-delay:.28s; }
+  .tool.die{ animation-delay:.28s; }
+  .foot-inner{ animation-delay:.36s; }
   @media(prefers-reduced-motion:reduce){
     .hero,.tool,.foot-inner{ animation:none; }
     .tool,.tool .go .arrow{ transition:none; }
@@ -199,10 +211,10 @@
     </header>
 
     <section class="hero">
-      <div class="eyebrow"><span class="pulse"></span> 사내 문서 생성 허브</div>
-      <h1>필요한 문서를,<br><span class="em">몇 번의 클릭으로</span> 발행하세요.</h1>
-      <p class="lead">견적서와 작업표준서를 품목 데이터와 연동해 바로 만듭니다.
-        입력하면 실시간으로 미리보고, PDF·Excel로 내보내세요. 아래에서 만들 문서를 선택하세요.</p>
+      <div class="eyebrow"><span class="pulse"></span> 사내 문서·도면 생성 허브</div>
+      <h1>필요한 문서와 도면을,<br><span class="em">몇 번의 클릭으로</span> 발행하세요.</h1>
+      <p class="lead">견적서와 작업표준서를 품목 데이터와 연동해 바로 만들고, 단상자 전개도까지 여기서 뽑습니다.
+        입력하면 실시간으로 미리보고, PDF·Excel·AI·DXF로 내보내세요. 아래에서 만들 항목을 선택하세요.</p>
     </section>
 
     <main class="tools">
@@ -248,6 +260,30 @@
         </div>
         <div class="go">
           <span class="label">작업표준서 만들기</span>
+          <span class="arrow" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 단상자 도면 -->
+      <a class="tool die" href="dieline/">
+        <span class="doc-tab">도면 03 · 설계</span>
+        <div class="ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 4h6v4h12v12h-6v-4H3z"/>
+            <path d="M9 8v8M15 8v8"/>
+          </svg>
+        </div>
+        <h2>단상자 도면 생성</h2>
+        <div class="sub">Dieline Studio</div>
+        <p class="desc">폭·깊이·높이를 넣으면 리버스 턱 엔드 전개도가 그려집니다.
+          판지 두께 보정과 칼선·오시선 분리는 자동, 3D로 접어 간섭까지 확인합니다.</p>
+        <div class="feats">
+          <span>제품별 프리셋</span><span>두께 보정</span><span>AI·DXF 출력</span><span>3D 접기</span>
+        </div>
+        <div class="go">
+          <span class="label">도면 만들기</span>
           <span class="arrow" aria-hidden="true">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           </span>
