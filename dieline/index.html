@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>단상자 도면 생성기</title>
+<title>단상자 도면 생성기 · カートン展開図ジェネレーター</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
@@ -17,6 +17,8 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none !important}
+.ja{display:block;font-weight:400;font-style:normal;font-size:10px;color:var(--mut);line-height:1.35}
+.jai{font-style:normal;font-size:10px;color:var(--mut);margin-left:4px}
 html,body{height:100%}
 body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13.5px;line-height:1.5;
   display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
@@ -25,24 +27,29 @@ button,input,select{font:inherit;color:inherit}
 header{display:flex;align-items:stretch;border-bottom:1px solid var(--line);background:var(--bg)}
 .brand{padding:11px 18px;display:flex;align-items:baseline;gap:10px;border-right:1px solid var(--line)}
 .brand h1{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.brand h1 .ja{margin-top:1px}
 .brand span{font-family:var(--mono);font-size:10.5px;color:var(--mut)}
 .meta{padding:8px 16px;flex:1;display:flex;flex-direction:column;justify-content:center}
 .meta b{font-weight:500;font-size:13px}
-.meta i{font-family:var(--mono);font-size:10px;color:var(--mut);font-style:normal}
+.meta .ja{font-size:10px}
+.meta i.code{font-family:var(--mono);font-size:10px;color:var(--mut);font-style:normal}
 
 main{display:grid;grid-template-columns:276px 1fr;min-height:0}
 aside{border-right:1px solid var(--line);overflow-y:auto;background:var(--panel);scrollbar-width:thin}
 .grp{border-bottom:1px solid var(--line);padding:14px 16px}
 .grp>h2{font-size:11.5px;font-weight:600;color:var(--mut);margin-bottom:10px}
+.grp>h2 .ja{color:#9aa3ac;margin-top:1px}
 .field{display:grid;grid-template-columns:1fr 74px;align-items:center;gap:8px;margin-bottom:7px}
 .field label{font-size:12.5px}
 .field label em{font-family:var(--mono);font-style:normal;color:var(--mut);font-size:11px;margin-left:5px}
+.field label .ja{margin-top:1px}
 .field input{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:5px 7px;
   font-family:var(--mono);font-size:12px;text-align:right;width:100%}
 .field input:focus{outline:none;border-color:var(--crease)}
 .pcat{margin-bottom:11px}
 .pcat:last-child{margin-bottom:0}
 .pcat h3{font-size:12px;font-weight:500;margin-bottom:5px}
+.pcat h3 .ja{margin-top:0}
 .prow{display:flex;flex-wrap:wrap;gap:5px}
 .prow button{background:var(--bg);border:1px solid var(--line);border-radius:3px;
   padding:4px 10px;font-size:11.5px;cursor:pointer;font-family:var(--mono)}
@@ -58,8 +65,10 @@ aside{border-right:1px solid var(--line);overflow-y:auto;background:var(--panel)
 .toggle input{accent-color:var(--crease)}
 .checks input{accent-color:var(--crease)}
 .exp{display:grid;gap:6px}
-.exp button{background:var(--crease);border:0;border-radius:3px;padding:8px;font-weight:500;
-  cursor:pointer;color:#fff}
+.exp button{background:var(--crease);border:0;border-radius:3px;padding:7px 8px;font-weight:500;
+  cursor:pointer;color:#fff;line-height:1.35}
+.exp button .ja{color:rgba(255,255,255,.82)}
+.exp button.alt .ja{color:var(--mut)}
 .exp button.alt{background:var(--bg);border:1px solid var(--line);color:var(--tx)}
 .exp button:hover{filter:brightness(1.06)}
 .hint{font-size:11px;color:var(--mut);margin-top:8px;line-height:1.45}
@@ -69,7 +78,8 @@ aside{border-right:1px solid var(--line);overflow-y:auto;background:var(--panel)
 #svg.drag{cursor:grabbing}
 .viewtab{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;
   border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--bg)}
-.viewtab button{background:var(--bg);border:0;padding:5px 14px;font-size:12px;cursor:pointer;color:var(--mut)}
+.viewtab button{background:var(--bg);border:0;padding:5px 13px;font-size:12px;cursor:pointer;color:var(--mut)}
+.viewtab button .jai{color:inherit;opacity:.75}
 .viewtab button[aria-pressed=true]{background:var(--crease);color:#fff}
 #three{position:absolute;inset:0}
 #three canvas{display:block;width:100%;height:100%}
@@ -86,16 +96,18 @@ aside{border-right:1px solid var(--line);overflow-y:auto;background:var(--panel)
 .tools button:hover{border-color:var(--crease)}
 .legend{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.92);
   border:1px solid var(--line);border-radius:3px;padding:7px 10px;display:flex;gap:14px;font-size:11.5px}
-.legend i{display:inline-block;width:16px;height:0;vertical-align:middle;margin-right:5px}
+.legend i.sw{display:inline-block;width:16px;height:0;vertical-align:middle;margin-right:5px}
 .alerts{position:absolute;left:12px;bottom:12px;max-width:min(430px,62%);display:grid;gap:5px}
 .alert{background:#fdf6e7;border-left:3px solid var(--warn);color:#6b4a0c;
   padding:7px 10px;font-size:12px;border-radius:0 3px 3px 0}
+.alert .ja{color:inherit;opacity:.78;font-size:11px;margin-top:2px}
 .alert.bad{background:#fdeeec;border-color:var(--crease);color:#8c231a}
 
 footer{border-top:1px solid var(--line);background:var(--panel);display:flex;
   overflow-x:auto;scrollbar-width:thin}
 .stat{padding:9px 16px;border-right:1px solid var(--line);white-space:nowrap}
 .stat dt{font-size:10.5px;color:var(--mut);margin-bottom:1px}
+.stat dt .ja{font-size:9.5px;color:#9aa3ac}
 .stat dd{font-family:var(--mono);font-size:13px}
 .stat dd small{color:var(--mut);font-size:10.5px}
 
@@ -109,42 +121,42 @@ footer{border-top:1px solid var(--line);background:var(--panel);display:flex;
 <body>
 
 <header>
-  <div class="brand"><h1>단상자 도면 생성기</h1><span>dieline studio</span></div>
-  <div class="meta"><b>리버스 턱 엔드</b><i>ECMA A20.20.03.01</i></div>
+  <div class="brand"><h1>단상자 도면 생성기<i class="ja">カートン展開図ジェネレーター</i></h1><span>dieline studio</span></div>
+  <div class="meta"><b>리버스 턱 엔드<i class="ja">リバースタックエンド</i></b><i class="code">ECMA A20.20.03.01</i></div>
 </header>
 
 <main>
   <aside>
     <div class="grp">
-      <h2>제품 프리셋</h2>
+      <h2>제품 프리셋<span class="ja">製品プリセット</span></h2>
       <div id="presets"></div>
       <div class="pinfo" id="pinfo"></div>
     </div>
     <div class="grp">
-      <h2>외경 치수 (mm)</h2>
+      <h2>외경 치수 (mm)<span class="ja">外寸法 (mm)</span></h2>
       <div id="dims"></div>
     </div>
     <div class="grp">
-      <h2>구조 파라미터</h2>
+      <h2>구조 파라미터<span class="ja">構造パラメータ</span></h2>
       <div id="opts"></div>
     </div>
     <div class="grp">
-      <h2>표시</h2>
+      <h2>표시<span class="ja">表示</span></h2>
       <div class="checks">
-        <label><input type="checkbox" id="cbCrease" checked>오시선</label>
-        <label><input type="checkbox" id="cbDim" checked>치수</label>
-        <label><input type="checkbox" id="cbLabel" checked>판넬명</label>
-        <label><input type="checkbox" id="cbGrid">10mm 그리드</label>
+        <label><input type="checkbox" id="cbCrease" checked>오시선<i class="jai">罫線</i></label>
+        <label><input type="checkbox" id="cbDim" checked>치수<i class="jai">寸法</i></label>
+        <label><input type="checkbox" id="cbLabel" checked>판넬명<i class="jai">パネル名</i></label>
+        <label><input type="checkbox" id="cbGrid">10mm 그리드<i class="jai">10mmグリッド</i></label>
       </div>
     </div>
     <div class="grp">
-      <h2>내보내기</h2>
+      <h2>내보내기<span class="ja">書き出し</span></h2>
       <div class="exp">
-        <button id="btnAi">일러스트레이터 (.ai)</button>
-        <button class="alt" id="btnDxf">DXF 내려받기</button>
-        <button class="alt" id="btnSvg">SVG 내려받기</button>
+        <button id="btnAi">일러스트레이터 (.ai)<span class="ja">イラストレーター</span></button>
+        <button class="alt" id="btnDxf">DXF 내려받기<span class="ja">DXFダウンロード</span></button>
+        <button class="alt" id="btnSvg">SVG 내려받기<span class="ja">SVGダウンロード</span></button>
       </div>
-      <p class="hint">세 형식 모두 칼선 <b>CUT</b>, 오시선 <b>CREASE</b> 레이어로 분리됩니다. .ai는 일러스트레이터에서 바로 열리고, DXF는 R12 형식(mm)이라 라이노·캐드에서 읽힙니다.</p>
+      <p class="hint">세 형식 모두 칼선 <b>CUT</b>, 오시선 <b>CREASE</b> 레이어로 분리됩니다. .ai는 일러스트레이터에서 바로 열리고, DXF는 R12 형식(mm)이라 라이노·캐드에서 읽힙니다.<br><span class="ja" style="margin-top:6px">いずれの形式もカット線 CUT・罫線 CREASE のレイヤーに分かれます。.ai はイラストレーターで直接開け、DXF は R12 形式(mm)なので Rhino・CAD で読み込めます。</span></p>
     </div>
   </aside>
 
@@ -152,20 +164,20 @@ footer{border-top:1px solid var(--line);background:var(--panel);display:flex;
     <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="three" hidden></div>
     <div class="viewtab">
-      <button id="tab2d" aria-pressed="true">도면</button>
-      <button id="tab3d" aria-pressed="false">3D 접기</button>
+      <button id="tab2d" aria-pressed="true">도면<i class="jai">展開図</i></button>
+      <button id="tab3d" aria-pressed="false">3D 접기<i class="jai">3D折り</i></button>
     </div>
     <div class="folder" id="folder" hidden>
       <input type="range" id="fold" min="0" max="100" value="0">
-      <output id="foldv">펼침</output>
-      <button id="foldplay">접기</button>
+      <output id="foldv">펼침 · 展開</output>
+      <button id="foldplay">접기 · 折る</button>
     </div>
     <div class="legend">
-      <span><i style="border-top:2px solid #101418"></i>칼선</span>
-      <span><i style="border-top:2px dashed #d63b2f"></i>오시선</span>
+      <span><i class="sw" style="border-top:2px solid #101418"></i>칼선<i class="jai">カット線</i></span>
+      <span><i class="sw" style="border-top:2px dashed #d63b2f"></i>오시선<i class="jai">罫線</i></span>
     </div>
     <div class="tools">
-      <button id="btnFit">전체보기</button>
+      <button id="btnFit">전체보기 · 全体表示</button>
       <button id="btnZi">+</button>
       <button id="btnZo">−</button>
     </div>
@@ -244,8 +256,10 @@ G.rte = {
   build(d,o){
     const {L,P,A,S}=d, {inc,ganc,chamf,taper,slitL:fl,slitP:fp,nurbsK}=o;
     const s=[], w=[];
-    if(P < inc+3) w.push({bad:1,m:`깊이 P(${P})가 접착탭 ${inc}+3mm보다 작습니다. 접었을 때 탭이 겹칩니다.`});
-    if(A <= 2*S) w.push({bad:1,m:`높이 A는 판지 두께의 2배(${(2*S).toFixed(1)}mm)보다 커야 합니다.`});
+    if(P < inc+3) w.push({bad:1,m:`깊이 P(${P})가 접착탭 ${inc}+3mm보다 작습니다. 접었을 때 탭이 겹칩니다.`,
+      ja:`奥行 P(${P}) が糊代 ${inc}+3mm より小さいです。折ったときにタブが重なります。`});
+    if(A <= 2*S) w.push({bad:1,m:`높이 A는 판지 두께의 2배(${(2*S).toFixed(1)}mm)보다 커야 합니다.`,
+      ja:`高さ A は板紙厚の2倍(${(2*S).toFixed(1)}mm)より大きくしてください。`});
     if(w.some(x=>x.bad)) return {seg:s,warn:w,labels:[]};
 
     const body=A-2*S, ear=2*S;
@@ -256,8 +270,10 @@ G.rte = {
     const ttf=ytt+P-ear, tte=ytt+P, ttt=ttf+ganc;
     const cx=(x3+x4)/2, yit=yt-S, yib=yb;
     const dd=Math.min((P+ganc-S)/2, L/2);
-    if(dd < 10) w.push({m:`더스트 플랩 깊이가 ${dd.toFixed(1)}mm로 얕습니다. 내용물 지지가 약해 10mm 이상을 권장합니다.`});
-    if(P < 15) w.push({m:`깊이 ${P}mm는 자동 제함기 흡착이 불안정할 수 있습니다. 수동 제함을 전제하세요.`});
+    if(dd < 10) w.push({m:`더스트 플랩 깊이가 ${dd.toFixed(1)}mm로 얕습니다. 내용물 지지가 약해 10mm 이상을 권장합니다.`,
+      ja:`ダストフラップの深さが ${dd.toFixed(1)}mm と浅いです。内容物の保持が弱いため 10mm 以上を推奨します。`});
+    if(P < 15) w.push({m:`깊이 ${P}mm는 자동 제함기 흡착이 불안정할 수 있습니다. 수동 제함을 전제하세요.`,
+      ja:`奥行 ${P}mm は自動製函機の吸着が不安定になる場合があります。手作業での製函を前提にしてください。`});
 
     s.push(L_('crease',x1,yb,x1,yit), L_('crease',x2,yb,x2,yt),
            L_('crease',x3,yb,x3,yt),  L_('crease',x4,yb,x4,yt));
@@ -304,14 +320,16 @@ G.rte = {
           tt=tuckEnd(x1,x2,ytt,+1,{...tq,lock:o.lockTop!==false});
     s.push(L_('cut',x1,yit,x1,ytt), ...tb.seg, ...tt.seg);
     if((o.tuckR||0) > tb.Rt+1e-9)
-      w.push({m:`귀도리 R을 ${tb.Rt.toFixed(1)}mm로 제한했습니다. 턱 높이 ${tb.h.toFixed(1)} / 반폭 ${(tb.w/2).toFixed(1)}mm가 상한입니다.`});
-    if(!tb.ok) w.push({m:`슬릿 치수를 확인하세요. 슬릿 폭은 ${S}mm보다, 깊이는 ${(2*S).toFixed(1)}mm(크리스까지)보다 커야 합니다.`});
+      w.push({m:`귀도리 R을 ${tb.Rt.toFixed(1)}mm로 제한했습니다. 턱 높이 ${tb.h.toFixed(1)} / 반폭 ${(tb.w/2).toFixed(1)}mm가 상한입니다.`,
+        ja:`先端コーナー R を ${tb.Rt.toFixed(1)}mm に制限しました。タック高さ ${tb.h.toFixed(1)} / 半幅 ${(tb.w/2).toFixed(1)}mm が上限です。`});
+    if(!tb.ok) w.push({m:`슬릿 치수를 확인하세요. 슬릿 폭은 ${S}mm보다, 깊이는 ${(2*S).toFixed(1)}mm(크리스까지)보다 커야 합니다.`,
+      ja:`スリット寸法を確認してください。幅は ${S}mm、深さは ${(2*S).toFixed(1)}mm(罫線まで)より大きくする必要があります。`});
 
-    const labels=[['접착탭',(x0+x1)/2],['P1',(x1+x2)/2],['P2',(x2+x3)/2],
+    const labels=[['접착탭 糊代',(x0+x1)/2],['P1',(x1+x2)/2],['P2',(x2+x3)/2],
                   ['P3',(x3+x4)/2],['P4',(x4+x5)/2]].map(([n,x])=>({n,x,y:body/2}));
-    const guides=[{t:'h',x1:x3,x2:x4,y:body*0.30,label:`폭 L ${L}`},
-                  {t:'h',x1:x4,x2:x5,y:body*0.30,label:`깊이 P ${P}`},
-                  {t:'v',x:x0-Math.max(7,L*0.16),y1:yb,y2:yt,label:`높이 A ${A}`}];
+    const guides=[{t:'h',x1:x3,x2:x4,y:body*0.30,label:`폭 幅 L ${L}`},
+                  {t:'h',x1:x4,x2:x5,y:body*0.30,label:`깊이 奥行 P ${P}`},
+                  {t:'v',x:x0-Math.max(7,L*0.16),y1:yb,y2:yt,label:`높이 高さ A ${A}`}];
     return {seg:s, warn:w, labels, guides};
   }
 };
@@ -430,10 +448,13 @@ function lengths(segs){
 /* =====================================================================
    3. 프리셋 · 상태 · UI
    ===================================================================== */
-const OPTLABEL={inc:['접착탭 폭','inc'],ganc:['턱 삽입 길이','ganc'],chamf:['모서리 챔퍼','chamf'],
-  taper:['플랩 테이퍼','taper'],slitL:['슬릿락 폭','slit L'],slitP:['슬릿락 깊이','slit P'],
-  tuckR:['귀도리 R','R'],lockTop:['상단 슬릿락',''],lockBot:['하단 슬릿락',''],
-  C:['접착탭 폭','C'],E:['목형 챔퍼','E'],T:['플랩 돌출','T']};
+const OPTLABEL={
+  inc:['접착탭 폭','inc','糊代幅'],           ganc:['턱 삽입 길이','ganc','差込み長さ'],
+  chamf:['모서리 챔퍼','chamf','角面取り'],   taper:['플랩 테이퍼','taper','フラップテーパー'],
+  slitL:['슬릿락 폭','slit L','スリットロック幅'],
+  slitP:['슬릿락 깊이','slit P','スリットロック深さ'],
+  tuckR:['귀도리 R','R','先端コーナーR'],
+  lockTop:['상단 슬릿락','','上側スリットロック'], lockBot:['하단 슬릿락','','下側スリットロック']};
 
 /* 세장형(픽서) / 표준형 구조 파라미터 세트 */
 const SLIM ={inc:11,ganc:12,chamf:2,  taper:1.5,slitL:5,  slitP:2,  tuckR:6, lockTop:true,lockBot:true};
@@ -441,26 +462,29 @@ const SLIM2={inc:12,ganc:13,chamf:2,  taper:1.5,slitL:5.5,slitP:2,  tuckR:7, loc
 const MID  ={inc:16,ganc:16,chamf:3,  taper:2,  slitL:6,  slitP:2.5,tuckR:8, lockTop:true,lockBot:true};
 const STD  ={inc:18,ganc:18,chamf:3,  taper:2,  slitL:7,  slitP:2.5,tuckR:9, lockTop:true,lockBot:true};
 
+const CLR ={ko:'폭·깊이 +1.0 / 높이 +2.0', ja:'幅・奥行 +1.0 / 高さ +2.0'};
+const CLRD={ko:'⌀ +1.0 / 높이 +2.0',        ja:'⌀ +1.0 / 高さ +2.0'};
 const PRESETS=[
- {cat:'펌제 파우치 단상자', items:[
-   {n:'10개입', prod:'파우치 40 × 26 × 96', clr:'폭·깊이 +1.0 / 높이 +2.0',
+ {cat:'펌제 파우치 단상자', ja:'パーマ剤パウチ箱', items:[
+   {n:'10개입', prod:'파우치 パウチ 40 × 26 × 96', clr:CLR,
     s:'rte', d:{L:42.5,P:28,A:100,S:0.4}, o:MID}]},
- {cat:'픽서 단상자', items:[
-   {n:'5g',  prod:'용기 ⌀14 × 91',   clr:'⌀ +1.0 / 높이 +2.0',
+ {cat:'픽서 단상자', ja:'フィキサー箱', items:[
+   {n:'5g',  prod:'용기 容器 ⌀14 × 91',   clr:CLRD,
     s:'rte', d:{L:16.5,P:16,A:95,S:0.4}, o:SLIM},
-   {n:'10g', prod:'용기 ⌀16.5 × 108', clr:'⌀ +1.0 / 높이 +2.0',
+   {n:'10g', prod:'용기 容器 ⌀16.5 × 108', clr:CLRD,
     s:'rte', d:{L:19,P:18.5,A:112,S:0.4}, o:SLIM2}]},
- {cat:'래쉬샴푸 단상자', items:[
-   {n:'40ml', prod:'용기 ⌀36 × 110', clr:'⌀ +1.0 / 높이 +2.0',
+ {cat:'래쉬샴푸 단상자', ja:'ラッシュシャンプー箱', items:[
+   {n:'40ml', prod:'용기 容器 ⌀36 × 110', clr:CLRD,
     s:'rte', d:{L:38.5,P:38,A:114,S:0.4}, o:STD},
-   {n:'50ml', prod:'용기 ⌀36 × 120', clr:'⌀ +1.0 / 높이 +2.0',
+   {n:'50ml', prod:'용기 容器 ⌀36 × 120', clr:CLRD,
     s:'rte', d:{L:38.5,P:38,A:124,S:0.4}, o:STD},
-   {n:'60ml', prod:'용기 ⌀36 × 129', clr:'⌀ +1.0 / 높이 +2.0',
+   {n:'60ml', prod:'용기 容器 ⌀36 × 129', clr:CLRD,
     s:'rte', d:{L:38.5,P:38,A:133,S:0.4}, o:STD},
-   {n:'100ml',prod:'용기 ⌀36 × 180', clr:'⌀ +1.0 / 높이 +2.0',
+   {n:'100ml',prod:'용기 容器 ⌀36 × 180', clr:CLRD,
     s:'rte', d:{L:38.5,P:38,A:184,S:0.4}, o:STD}]}
 ];
-const SHEETS=[['국전 636×939',636,939],['46전 788×1091',788,1091],['A3+ 329×483',329,483]];
+const SHEETS=[['국전 636×939','菊全',636,939],['46전 788×1091','四六全',788,1091],
+              ['A3+ 329×483','',329,483]];
 
 let cur='rte', D={...G.rte.dims}, O={...G.rte.opts}, view={k:1,tx:0,ty:0}, model=null, picked=null;
 
@@ -469,7 +493,7 @@ const round=(v,n=1)=>{const p=10**n;return Math.round(v*p)/p};
 
 function buildPresets(){
   $('presets').innerHTML=PRESETS.map((c,ci)=>
-    `<div class="pcat"><h3>${c.cat}</h3><div class="prow">${
+    `<div class="pcat"><h3>${c.cat}<span class="ja">${c.ja}</span></h3><div class="prow">${
       c.items.map((it,ii)=>`<button data-p="${ci}.${ii}"
         aria-pressed="${picked===ci+'.'+ii}">${it.n}</button>`).join('')
     }</div></div>`).join('');
@@ -479,23 +503,27 @@ function buildPresets(){
   drawPinfo();
 }
 function drawPinfo(){
-  if(!picked){ $('pinfo').innerHTML='프리셋을 고르면 외경 치수와 구조 파라미터가 함께 바뀝니다.'; return; }
+  if(!picked){ $('pinfo').innerHTML='프리셋을 고르면 외경 치수와 구조 파라미터가 함께 바뀝니다.'
+    +'<span class="ja" style="margin-top:3px">プリセットを選ぶと外寸法と構造パラメータが一緒に変わります。</span>'; return; }
   const [ci,ii]=picked.split('.').map(Number), it=PRESETS[ci].items[ii];
   const inn=G[cur].inner(D).map(v=>v==null?'—':round(v,1));
-  $('pinfo').innerHTML=`<b>${PRESETS[ci].cat} ${it.n}</b><br>${it.prod}
-    ${it.est?` <em>(${it.est})</em>`:''}<br>여유 ${it.clr}<br>
-    내경 ${inn[0]} × ${inn[1]} × ${inn[2]}`;
+  $('pinfo').innerHTML=`<b>${PRESETS[ci].cat} ${it.n}</b>
+    <span class="ja">${PRESETS[ci].ja} ${it.n}</span>
+    ${it.prod}<br>여유 ${it.clr.ko}<br>내경 ${inn[0]} × ${inn[1]} × ${inn[2]}
+    <span class="ja">クリアランス ${it.clr.ja}　内寸 ${inn[0]} × ${inn[1]} × ${inn[2]}</span>`;
 }
 function buildInputs(){
   const g=G[cur];
-  $('dims').innerHTML=[['L','폭'],['P','깊이'],['A','높이'],['S','판지 두께']].map(([k,n])=>
-    `<div class="field"><label>${n}<em>${k}</em></label>
+  $('dims').innerHTML=[['L','폭','幅'],['P','깊이','奥行'],['A','높이','高さ'],
+                       ['S','판지 두께','板紙厚']].map(([k,n,j])=>
+    `<div class="field"><label>${n}<em>${k}</em><i class="ja">${j}</i></label>
      <input type="number" step="${k==='S'?0.05:0.5}" min="0" data-d="${k}" value="${D[k]}"></div>`).join('');
   $('opts').innerHTML=Object.keys(g.opts).map(k=>{
-    const [n,sym]=OPTLABEL[k]||[k,k];
+    const [n,sym,j]=OPTLABEL[k]||[k,k,''];
     if(typeof g.opts[k]==='boolean')
-      return `<label class="toggle"><input type="checkbox" data-b="${k}"${O[k]?' checked':''}>${n}</label>`;
-    return `<div class="field"><label>${n}<em>${sym}</em></label>
+      return `<label class="toggle"><input type="checkbox" data-b="${k}"${O[k]?' checked':''}>${n}`
+           + `<i class="jai">${j}</i></label>`;
+    return `<div class="field"><label>${n}<em>${sym}</em><i class="ja">${j}</i></label>
       <input type="number" step="0.5" min="0" data-o="${k}" value="${O[k]}"></div>`;
   }).join('');
   document.querySelectorAll('[data-b]').forEach(i=>{
@@ -586,25 +614,31 @@ function fitView(bb,W,H){
   view.k=k; view.tx=W/2-k*(bb.x0+bb.x1)/2; view.ty=H/2+k*(bb.y0+bb.y1)/2;
 }
 function drawAlerts(w){
-  $('alerts').innerHTML=(w||[]).map(a=>`<div class="alert${a.bad?' bad':''}">${a.m}</div>`).join('');
+  $('alerts').innerHTML=(w||[]).map(a=>
+    `<div class="alert${a.bad?' bad':''}">${a.m}${a.ja?`<span class="ja">${a.ja}</span>`:''}</div>`).join('');
 }
 function drawStats(bb){
   const g=G[cur], inn=g.inner(D), len=lengths(model.seg);
-  const best=SHEETS.map(([n,sw,sh])=>{
+  const best=SHEETS.map(([n,ja,sw,sh])=>{
     const m=10, w=bb.w+3, h=bb.h+3;
     const a=Math.floor((sw-2*m)/w)*Math.floor((sh-2*m)/h);
     const b=Math.floor((sw-2*m)/h)*Math.floor((sh-2*m)/w);
-    return {n,c:Math.max(a,b,0)};
+    return {n,ja,c:Math.max(a,b,0)};
   });
   const f=v=>v==null?'—':round(v,1);
   $('stats').innerHTML=`
-    <div class="stat"><dt>구조</dt><dd>${g.short} <small>${g.code}</small></dd></div>
-    <div class="stat"><dt>외경 L×P×A</dt><dd>${D.L}×${D.P}×${D.A}</dd></div>
-    <div class="stat"><dt>내경 (두께 보정 후)</dt><dd>${f(inn[0])}×${f(inn[1])}×${f(inn[2])}</dd></div>
-    <div class="stat"><dt>전개 크기</dt><dd>${round(bb.w)}×${round(bb.h)} <small>mm</small></dd></div>
-    <div class="stat"><dt>칼선 길이</dt><dd>${round(len.cut/1000,2)} <small>m</small></dd></div>
-    <div class="stat"><dt>오시선 길이</dt><dd>${round(len.crease/1000,2)} <small>m</small></dd></div>
-    ${best.map(b=>`<div class="stat"><dt>${b.n}</dt><dd>${b.c} <small>장 앉힘</small></dd></div>`).join('')}`;
+    <div class="stat"><dt>구조<span class="ja">構造</span></dt><dd>${g.short} <small>${g.code}</small></dd></div>
+    <div class="stat"><dt>외경 L×P×A<span class="ja">外寸法</span></dt><dd>${D.L}×${D.P}×${D.A}</dd></div>
+    <div class="stat"><dt>내경 (두께 보정 후)<span class="ja">内寸法（板厚補正後）</span></dt>
+      <dd>${f(inn[0])}×${f(inn[1])}×${f(inn[2])}</dd></div>
+    <div class="stat"><dt>전개 크기<span class="ja">展開サイズ</span></dt>
+      <dd>${round(bb.w)}×${round(bb.h)} <small>mm</small></dd></div>
+    <div class="stat"><dt>칼선 길이<span class="ja">カット線長</span></dt>
+      <dd>${round(len.cut/1000,2)} <small>m</small></dd></div>
+    <div class="stat"><dt>오시선 길이<span class="ja">罫線長</span></dt>
+      <dd>${round(len.crease/1000,2)} <small>m</small></dd></div>
+    ${best.map(b=>`<div class="stat"><dt>${b.n}<span class="ja">${b.ja}</span></dt>
+      <dd>${b.c} <small>장 · 面付</small></dd></div>`).join('')}`;
 }
 
 (function(){
@@ -841,17 +875,18 @@ function setView(is3d){
   document.querySelector('.legend').hidden=is3d;
   document.querySelector('.tools').hidden=is3d;
   if(is3d){ if(!window.THREE){ $('three').innerHTML=
-      '<p style="padding:24px;color:#6d7681;font-size:13px">3D 미리보기를 불러오지 못했습니다. 네트워크를 확인하고 새로고침해 주세요.</p>';
+      '<p style="padding:24px;color:#6d7681;font-size:13px">3D 미리보기를 불러오지 못했습니다. 네트워크를 확인하고 새로고침해 주세요.'
+      +'<br><span style="font-size:11px">3Dプレビューを読み込めませんでした。ネットワークを確認して再読み込みしてください。</span></p>';
       return;} buildPanels(); }
 }
 $('tab2d').onclick=()=>setView(false);
 $('tab3d').onclick=()=>setView(true);
 $('fold').oninput=e=>{const v=+e.target.value/100;
-  $('foldv').textContent = v<=0?'펼침':(v>=1?'완성':Math.round(v*100)+'%');
+  $('foldv').textContent = v<=0?'펼침 · 展開':(v>=1?'완성 · 完成':Math.round(v*100)+'%');
   setFold(v);};
 $('foldplay').onclick=()=>{
   const inp=$('fold'); let from=+inp.value, to=from>50?0:100, t0=performance.now();
-  $('foldplay').textContent = to?'접기':'펴기';
+  $('foldplay').textContent = to?'접기 · 折る':'펴기 · 広げる';
   (function step(now){
     const k=Math.min(1,(now-t0)/1400), v=from+(to-from)*ease(k);
     inp.value=v; inp.dispatchEvent(new Event('input'));
